@@ -1,0 +1,39 @@
+[DECLARATION]->null
+
+[DECLARATION]->null
+
+[BEGIN_BLOCK]->null
+
+[ASSIGNMENT]->[result]->[TRUE]->[=]->null
+
+                                [ASSIGNMENT]->[my_string]->[[]->[0]->[]]->[']->[\x0]->[']->[=]->null
+
+                                                                                           [ASSIGNMENT]->[number]->[3]->[=]->null
+
+                                                                                                                        [END_BLOCK]->null
+
+                                                                                                                        [DECLARATION]->null
+
+                                                                                                                        [DECLARATION]->null
+
+                                                                                                                        [BEGIN_BLOCK]->null
+
+                                                                                                                        [ASSIGNMENT]->[i]->[1]->[=]->null
+
+                                                                                                                                                [ASSIGNMENT]->[j]->[1000]->[=]->null
+
+                                                                                                                                                                           [ASSIGNMENT]->[k]->[25]->[=]->null
+
+                                                                                                                                                                                                    [RETURN]->[TRUE]->null
+
+                                                                                                                                                                                                              [END_BLOCK]->null
+
+                                                                                                                                                                                                              [DECLARATION]->null
+
+                                                                                                                                                                                                              [DECLARATION]->null
+
+                                                                                                                                                                                                              [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                              [END_BLOCK]->null
+
+                                                                                                                                                                                                              [DECLARATION]->null

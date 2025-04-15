@@ -1,0 +1,105 @@
+[DECLARATION]->null
+
+[BEGIN_BLOCK]->null
+
+[DECLARATION]->null
+
+[ASSIGNMENT]->[state]->[0]->[=]->null
+
+                            [if]->[counter]->[3]->[%]->[0]->[==]->null
+
+                                                            [BEGIN_BLOCK]->null
+
+                                                            [ASSIGNMENT]->[state]->[1]->[=]->null
+
+                                                                                        [END_BLOCK]->null
+
+                                                                                        [if]->[counter]->[5]->[%]->[0]->[==]->null
+
+                                                                                                                        [BEGIN_BLOCK]->null
+
+                                                                                                                        [ASSIGNMENT]->[state]->[state]->[2]->[*]->[2]->[+]->[=]->null
+
+                                                                                                                                                                            [END_BLOCK]->null
+
+                                                                                                                                                                            [if]->[state]->[1]->[==]->null
+
+                                                                                                                                                                                                [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                [printf]->[Fizz]->null
+
+                                                                                                                                                                                                          [END_BLOCK]->null
+
+                                                                                                                                                                                                          [else]->null
+
+                                                                                                                                                                                                          [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                          [if]->[state]->[2]->[==]->null
+
+                                                                                                                                                                                                                              [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                              [printf]->[Buzz]->null
+
+                                                                                                                                                                                                                                        [END_BLOCK]->null
+
+                                                                                                                                                                                                                                        [else]->null
+
+                                                                                                                                                                                                                                        [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                        [if]->[state]->[4]->[==]->null
+
+                                                                                                                                                                                                                                                            [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                                            [printf]->[Fizzbuzz]->null
+
+                                                                                                                                                                                                                                                                      [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                      [else]->null
+
+                                                                                                                                                                                                                                                                      [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                                                      [printf]->[%d]->[counter]->null
+
+                                                                                                                                                                                                                                                                                      [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                      [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                      [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                      [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                      [DECLARATION]->null
+
+                                                                                                                                                                                                                                                                                      [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                      [DECLARATION]->null
+
+                                                                                                                                                                                                                                                                                      [ASSIGNMENT]->[counter]->[1]->[=]->null
+
+                                                                                                                                                                                                                                                                                                                    [while]->[counter]->[100]->[<=]->null
+
+                                                                                                                                                                                                                                                                                                                                               [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                                                                               [fizzbuzz]->[(]->[counter]->[)]->null
+
+                                                                                                                                                                                                                                                                                                                                                                           [ASSIGNMENT]->[counter]->[counter]->[1]->[+]->[=]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                         [if]->[counter]->[100]->[<=]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 [printf]->[, ]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           [else]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           [BEGIN_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           [printf]->[\n]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                     [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                     [END_BLOCK]->null
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                     [END_BLOCK]->null

@@ -24,4 +24,4 @@ removeComments.o: removeComments/removeComments.cpp removeComments/removeComment
 
 
 clean:
-	rm -f *.o *.x
+	rm -f *.o 
