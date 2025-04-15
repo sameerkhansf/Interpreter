@@ -51,7 +51,6 @@ public:
     ASTnode * parseIterationStatement(node *& iter);
 
 
-
 private:
     ASTnode * head;
     symbolTable * ST;
