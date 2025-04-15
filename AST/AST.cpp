@@ -424,32 +424,36 @@ ASTnode * AST::parseIterationStatement(node *& iter)
 
     if (match(iter, "for")) {
 
-        parent = new ASTnode("for", nullptr);
-        _node = parent;
         iter = iter->sibling();
 
-        child = new ASTnode("FOR EXPRESSION 1", nullptr);
-        insert(parent, _node, child, origLineNum);
+        parent = new ASTnode("FOR EXPRESSION 1", nullptr);
+        _node = parent;
         iter = iter->sibling();
 
         ASTnode* init = convertToPostFix(iter);
         insert(parent, _node, init, origLineNum);
+        lineNum++;
+
 
         child = new ASTnode("FOR EXPRESSION 2", nullptr);
         insert(parent, _node, child, origLineNum);
         iter = iter->sibling();
+        origLineNum = lineNum;
 
         ASTnode* condition = convertToPostFix(iter);
         insert(parent,_node, condition, origLineNum);
-
         nextNode(iter);
+        lineNum++;
 
 
         child = new ASTnode("FOR EXPRESSION 3", nullptr);
         insert(parent, _node, child, origLineNum);
+        origLineNum = lineNum;
 
         ASTnode* update = convertToPostFix(iter);
         insert(parent,_node, update, origLineNum);
+        origLineNum = lineNum;
+        lineNum++;
 
         nextNode(iter);
 
