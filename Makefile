@@ -1,5 +1,8 @@
-ST.x: CST.o tokenize.o main.o removeComments.o tokenList.o ST.o
-	g++ -std=c++20 CST.o tokenize.o tokenList.o main.o removeComments.o ST.o -o ST.x
+AST.x: AST.o CST.o tokenize.o main.o removeComments.o tokenList.o ST.o
+	g++ -std=c++20 AST.o CST.o tokenize.o tokenList.o main.o removeComments.o ST.o -o AST.x
+
+AST.o: AST/AST.h AST/ASTnode.h
+	g++ -std=c++20 -c AST/AST.cpp -o AST.o
 
 ST.o: symbolTable/symbolTable.h symbolTable/stNode.h
 	g++ -std=c++20 -c symbolTable/symbolTable.cpp -o ST.o
