@@ -129,14 +129,29 @@ bool AST::match(node * iter, const string& str)
 
 ASTnode * AST::parseVarDeclaration(node *& iter)
 {
-    int scope = iter->scope();
+    int origLineNum = lineNum;
     iter = iter->sibling();
-    string varName = iter->content();
-    auto * declarationNode = new ASTnode(DECLARATION, ST->retrieveNode(varName, scope));
+    auto * parent = new ASTnode(DECLARATION, ST->retrieveNode(iter->content(), iter->scope()));
+    ASTnode * child = nullptr, * _node = parent;
+    iter = iter->sibling();
+
+    if (match(iter, ","))
+    {
+        iter = iter->sibling();
+        while (iter && !match(iter, ";"))
+        {
+//            lineNum++;
+            if (!match(iter, ",")) {
+                child = new ASTnode(DECLARATION, ST->retrieveNode(iter->content(), iter->scope()));
+                insert(parent, _node, child, origLineNum);
+            }
+            iter = iter->sibling();
+        }
+    }
 
     parseToGivenChar(";", iter); // parse to ;
     nextNode(iter);
-    return declarationNode;
+    return parent;
 
 }
 
@@ -342,7 +357,7 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
 
     while (iter && iter->content() != ")")
     {
-        if ((!match(iter, ",")) && (!match(iter, ",")))
+        if (!match(iter, ","))
         {
             child = new ASTnode(iter->content(), nullptr);
             insert(parent, _node, child, origLineNum);
@@ -350,7 +365,7 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
         iter = iter->sibling();
 
     }
-    iter = iter->sibling();
+    nextNode(iter);
     return parent;
 
 }
@@ -445,7 +460,6 @@ ASTnode * AST::parseIterationStatement(node *& iter)
         nextNode(iter);
         lineNum++;
 
-
         child = new ASTnode("FOR EXPRESSION 3", nullptr);
         insert(parent, _node, child, origLineNum);
         origLineNum = lineNum;
@@ -471,19 +485,22 @@ ASTnode * AST::parseIterationStatement(node *& iter)
 }
 
 
-
 ASTnode * AST::parseUserDefinedFunction(node *& iter)
 {
     int origLineNum = lineNum;
     string prev = iter->content();
-    auto * parent = new ASTnode(iter->content(), ST->retrieveNode(prev, iter->scope()));
+
+    auto * parent = new ASTnode("call", nullptr);
+    auto * child = new ASTnode(iter->content(), ST->retrieveNode(prev, iter->scope()));
     auto * _node = parent;
-    ASTnode * child = nullptr;
+    insert(parent, _node, child, origLineNum);
     iter = iter->sibling();
 
     while (iter && prev != ")") {
-        child = new ASTnode(iter->content(), nullptr);
-        insert(parent, _node, child, origLineNum);
+        if ( !match(iter, ",")) {
+            child = new ASTnode(iter->content(), nullptr);
+            insert(parent, _node, child, origLineNum);
+        }
         prev = iter->content();
         iter = iter->sibling();
     }
@@ -636,8 +653,11 @@ ASTnode * AST::convertToPostFix(node *& iter)
             {
                 iter = iter->sibling();
                 while (iter && prev != ")") {
-                    child = new ASTnode(iter->content(), nullptr);
-                    insert(parent, _node, child, origLineNum);
+
+                    if (!match(iter, ",")) {
+                        child = new ASTnode(iter->content(), nullptr);
+                        insert(parent, _node, child, origLineNum);
+                    }
                     prev = iter->content();
                     iter = iter->sibling();
                 }
