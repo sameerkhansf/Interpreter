@@ -8,52 +8,85 @@
 #include <stack>
 using namespace std;
 
+
+/**
+ * Constructor for the AST using a previously constructed Concrete
+ * Syntax Tree and Symbol Table
+ */
 AST::AST(CST *cst, symbolTable * ST)
 {
+    // initialize the iterator node to the root of the CST
+    // and insertion pointers
     node * iter = cst->root();
-    ASTnode * parent = nullptr, *child = nullptr, * _node = head;
+    ASTnode * parent = nullptr, *child = nullptr, * _node = parent;
     this->ST = ST;
 
     while (iter)
     {
+        // variable used to check if insertions are for a sibling/child
         int origLineNum = lineNum;
+
+        // check if the current node is for a function/procedure
         if (match(iter, "function") || (match(iter, "procedure")))
         {
             child = parseFunctionDeclaration(iter);
         }
+        // if not, you are currently traversing a global variable
         else if (isDatatype(iter))
         {
             child = parseVarDeclaration(iter);
         }
+        // this should not be called and used for a debugging tool
         else
         {
-
              nextNode(iter);
              printf("INVALID STATEMENT ENCOUNTERED\n");
         }
-
+        // after creating the new child node, insert it into the AST
         insert(parent, _node, child, origLineNum);
     }
+    // set the head to the parent node
     head = parent;
 }
 
 
+
+/***
+ * This is the main insertion function for the AST
+ * @param parent the parent/root node
+ * @param _node the current place in the AST
+ * @param child the node to be inserted
+ * @param origLineNum this is used to see if the line number
+ * had changed during the creation of the child node
+ */
 void AST::insert(ASTnode *& parent,  ASTnode *& _node, ASTnode *& child, int origLineNum)
 {
+    // ensure that the child node is not null
     if (child) {
+        // if you stayed on the same line, insert as a sibling
         if (origLineNum == lineNum)
             insertSibling(parent, _node, child);
+        // line number changed, insert as a child of the ASt
         else
             insertChild(parent, _node, child);
     }
 }
 
 
+/***
+ * This function insert a node as a child of a current AST structure
+ *
+ * @param parent parent/root node of the structure
+ * @param curNode the last/end node in the structure
+ * @param _node the root node to be inserted
+ */
 void AST::insertChild(ASTnode *& parent, ASTnode *& curNode, ASTnode *& _node )
 {
+    // check if the insertion node is null
     if (!_node)
         return;
 
+    // check if the tree is empty
     if (!parent)
     {
         parent = _node;
@@ -61,23 +94,34 @@ void AST::insertChild(ASTnode *& parent, ASTnode *& curNode, ASTnode *& _node )
     }
     else
     {
+        // tree is not empty, set the current node's child to the
+        // new node and set current node to the last node of the
+        // child node
         assert(curNode);
         curNode->child(_node);
         curNode = getLastNode(_node);
     }
+    // set the child node ptr to null
     _node = nullptr;
 }
 
 
 
-
+/***
+ * This is used to insert a new node as a sibling of a current
+ * AST structure
+ *
+ * @param parent parent/root node of the structure
+ * @param curNode the last/end node in the structure
+ * @param _node the root node to be inserted
+ */
 void AST::insertSibling(ASTnode *& parent, ASTnode *& curNode, ASTnode *& _node )
 {
-
+    // ensure the insertion node is not null
     if (!_node)
         return;
 
-
+    // check if the tree is currently empty
     if (!parent)
     {
         parent = _node;
@@ -85,29 +129,53 @@ void AST::insertSibling(ASTnode *& parent, ASTnode *& curNode, ASTnode *& _node 
     }
     else
     {
+        // tree is not empty so set the sibling of the current node
+        // to the child
+        // then set current node to the last node of the sibling
         assert(curNode);
         curNode->sibling(_node);
         curNode = getLastNode(_node);
     }
+    // set the child node ptr to null
     _node = nullptr;
 }
 
 
+/***
+ * This safely moves the iterator pointer to
+ * the next node in the CST
+ * @param iter the pointer to the current place
+ * in the CST
+ */
 void AST::nextNode(node *& iter)
 {
+    // check if the given pointer is null
     if (iter) {
+        // if it has a sibling iterate to it
         if (iter->sibling())
             iter = iter->sibling();
+        // iterate to its child if it does not
         else {
             iter = iter->child();
+            // increment lineNum so we know we have
+            // changed lines
             lineNum++;
         }
     }
 }
 
 
+/***
+ * This checks if a current node it a identifier node holding
+ * a supported datatype
+ *
+ * @param iter the node pointer
+ * @return true if it is, false if not
+ */
 bool AST::isDatatype(node * iter)
 {
+    // ensure the node is not null, so you do not try to call
+    // a member function on a null pointer
     if (iter)
     {
         if (iter->content() == "int" || iter->content() == "char" || iter->content() == "bool")
@@ -117,8 +185,18 @@ bool AST::isDatatype(node * iter)
 }
 
 
+/***
+ * This function safely checks if a given node holds a
+ * set string value of any type
+ *
+ * @param iter the current node in the CST
+ * @param str the string to be compared
+ * @return true if the node contains that set string,
+ * false if not
+ */
 bool AST::match(node * iter, const string& str)
 {
+    // if the node is not null and holds the string value
     if (iter && iter->content() == str)
     {
         return true;
@@ -127,20 +205,41 @@ bool AST::match(node * iter, const string& str)
 }
 
 
+/***
+ * This function parses a variable declaration statement
+ *
+ * @param iter the current node in the CST
+ * @return the root of the AST structure
+ */
 ASTnode * AST::parseVarDeclaration(node *& iter)
 {
+    // initialize the line number variable (for insertions)
     int origLineNum = lineNum;
+    // iterate past the datatype to the name of the variable
     iter = iter->sibling();
+
+    // create a new Declaration AST node with a pointer to the variable's symbol table node
     auto * parent = new ASTnode(DECLARATION, ST->retrieveNode(iter->content(), iter->scope()));
+
     ASTnode * child = nullptr, * _node = parent;
     iter = iter->sibling();
 
+    // if you have a variable that is an array, parse past the brackets
+    if (match(iter, "["))
+    {
+        iter = iter->sibling(); // iterate past first bracket
+        if (!match(iter, "]")) // if there is a size variable
+            iter = iter->sibling();
+        iter = iter->sibling(); // pass ending bracket
+    }
+
+    // check if there are multiple declarations
     if (match(iter, ","))
     {
         iter = iter->sibling();
         while (iter && !match(iter, ";"))
         {
-//            lineNum++;
+//            lineNum++; // use if you want multiple declarations on the same line to appear as children
             if (!match(iter, ",")) {
                 child = new ASTnode(DECLARATION, ST->retrieveNode(iter->content(), iter->scope()));
                 insert(parent, _node, child, origLineNum);
@@ -148,29 +247,23 @@ ASTnode * AST::parseVarDeclaration(node *& iter)
             iter = iter->sibling();
         }
     }
-
-    parseToGivenChar(";", iter); // parse to ;
+    
+    // iterate past ";"
     nextNode(iter);
     return parent;
 
 }
 
 
-void AST::parseToEndl(node *& iter)
-{
-    if (iter)
-    {
-        while (iter->sibling())
-            iter = iter->sibling();
-        iter = iter->child();
-        lineNum++;
-    }
-}
-
-
+/***
+ * This function parses a function/procedure declaration
+ * 
+ * @param iter the current node in the CST
+ * @return the AST structure of the function/procedure
+ */
 ASTnode * AST::parseFunctionDeclaration(node *& iter)
 {
-
+    // set the origLineNum for future insertion
     int originalLineNum = lineNum;
     int scope = iter->scope();
 
@@ -182,10 +275,14 @@ ASTnode * AST::parseFunctionDeclaration(node *& iter)
     auto * declarationNode = new ASTnode(DECLARATION, ST->retrieveNode(funcName, scope));
     auto * _node = declarationNode;
 
+    // iterate past the function parameters
     parseToGivenChar(")", iter);
+    // iterate past ending ")"
     nextNode(iter);
 
+    // create a child of the contents of the function/procedure
     auto * child = parseBlockStatement(iter);
+    // insert it
     insert(declarationNode, _node, child, originalLineNum);
 
     return declarationNode;
@@ -193,27 +290,43 @@ ASTnode * AST::parseFunctionDeclaration(node *& iter)
 }
 
 
-
+/***
+ * This function parses a block statement for conditions
+ * and functions/procedures
+ * 
+ * @param iter the current node in the CST
+ * @return the root node of the block statement in an
+ * AST structure
+ */
 ASTnode* AST::parseBlockStatement( node *& iter) {
 
+    // set initial variables and parent node
     int origLineNum = lineNum;
     auto * parent = new ASTnode(BEGIN_BLOCK, nullptr);
     auto * _node = parent;
     nextNode(iter);
 
+    // parse the statements contained in the block
     ASTnode* body = parseCompoundStatement(iter);
     insert(parent, _node, body, origLineNum);
 
+    // add the ending bracket
     auto * child = new ASTnode(END_BLOCK, nullptr);
 
+    // insert the end bracket and iterate to the next node
     insert(parent, _node, child, origLineNum);
-     nextNode(iter);
-
-
+    nextNode(iter);
+    
     return parent;
 }
 
 
+/***
+ * This parses to a set char from a given node
+ * 
+ * @param character the character to parse to
+ * @param iter the current node in the CST
+ */
 void AST::parseToGivenChar(const string& character, node *& iter)
 {
     if (iter)
@@ -233,6 +346,13 @@ void AST::parseToGivenChar(const string& character, node *& iter)
 }
 
 
+/***
+ * This function parses a compound statement
+ * 
+ * @param iter current CST node
+ * @return the root node of the AST structured 
+ * compound statement
+ */
 ASTnode* AST::parseCompoundStatement( node *& iter ) {
 
     int origLineNum = lineNum;
@@ -240,26 +360,36 @@ ASTnode* AST::parseCompoundStatement( node *& iter ) {
     ASTnode * _node = parent;
     ASTnode * child = nullptr;
 
+    // while you do not encounter the ending bracket
+    // parse the inside statements
     while (iter && iter->content()!= "}")
     {
+        // parse the current statement and insert it
         child = parseStatement(iter);
         insert(parent, _node, child, origLineNum);
+        // parse the semicolon if you are currently at one
         if (iter && iter->content() == ";")
         {
             nextNode(iter);
         }
     }
-
     return parent;
 }
 
 
+/***
+ * This parses an AST structure and returns the
+ * last node
+ * 
+ * @param root the root node of the structure
+ * @return the last node in the structure
+ */
 ASTnode* AST::getLastNode(ASTnode * root) {
 
-    if (!root) return nullptr;
+    if (!root) 
+        return nullptr;
 
     auto * iter = root;
-
     while (iter) {
 
         while (iter->sibling())
@@ -267,47 +397,62 @@ ASTnode* AST::getLastNode(ASTnode * root) {
 
         if (iter->child()) {
             iter = iter->child();
-        } else {
-
+        } 
+        else {
             break;
         }
     }
-
     return iter;
 }
 
 
-
+/***
+ * This function parses a return statement
+ * 
+ * @param iter the current node in the CST
+ * @return root node of the created structure of the
+ * return statement
+ */
 ASTnode * AST::parseReturnStatement(node *& iter)
 {
-
+    // set the origLineNum for safety if return statement
+    // takes multiple lines
     int origLineNum = lineNum;
     auto * parent = new ASTnode("RETURN", nullptr);
     auto * _node = parent;
-    iter = iter->sibling();
+    iter = iter->sibling(); // iterate to the first node of the return expression
+    
+    // convert the return expression to post and insert it
     auto * child = convertToPostFix(iter);
     insert(parent, _node, child, origLineNum);
-    nextNode(iter);
+    nextNode(iter); // iterate past the semicolon
     return parent;
 }
 
 
-ASTnode * AST::parseDoubleQuoteString(node *& iter)
+/***
+ * Parse a double quote string (very similar to single quote string)
+ * 
+ * @param iter current CST node
+ * @return AST structure of the string
+ */
+ASTnode * AST::parseString(node *& iter)
 {
     int origLineNum = lineNum;
-    auto * parent = new ASTnode(iter->content(), nullptr);
+    auto * parent = new ASTnode(iter->content(), nullptr); // catch initial quote
     auto * _node = parent;
     ASTnode * child = nullptr;
     iter = iter->sibling();
 
     // get the inside string if it exists
-    if (!match(iter, "\""))
+    if (!match(iter, "\"") && !match(iter, "\'"))
     {
         child = new ASTnode(iter->content(), nullptr);
         insert(parent, _node, child, origLineNum);
         iter = iter->sibling();
     }
 
+    // get the ending quote
     child = new ASTnode(iter->content(), nullptr);
     insert(parent, _node, child, origLineNum);
     iter = iter->sibling();
@@ -316,35 +461,19 @@ ASTnode * AST::parseDoubleQuoteString(node *& iter)
 }
 
 
-ASTnode * AST::parseSingleQuoteString(node *& iter)
-{
-    int origLineNum = lineNum;
-    auto * parent = new ASTnode(iter->content(), nullptr);
-    auto * _node = parent;
-    ASTnode * child = nullptr;
-    iter = iter->sibling();
-
-    // get the inside string if it exists
-    if (!match(iter, "\'"))
-    {
-        child = new ASTnode(iter->content(), nullptr);
-        insert(parent, _node, child, origLineNum);
-        iter = iter->sibling();
-    }
-
-    child = new ASTnode(iter->content(), nullptr);
-    insert(parent, _node, child, origLineNum);
-    iter = iter->sibling();
-    return parent;
-}
-
-
+/***
+ * This parses a printf statement
+ * @param iter current CST node
+ * @return AST structure of the statement
+ */
 ASTnode * AST::parsePrintfStatement(node *& iter)
 {
+    // initialize line flag and parent node
     int origLineNum = lineNum;
     auto * parent = new ASTnode("printf", nullptr);
     auto * _node = parent;
     ASTnode * child = nullptr;
+    
     iter = iter->sibling(); // iterate to (
     iter = iter->sibling(); // iterate past
     iter = iter->sibling(); // iterate past quote
@@ -354,9 +483,10 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
     iter = iter->sibling(); // iterate to end quote
     iter = iter->sibling(); // iterate past
 
-
+    // catch variables after the string if they exist
     while (iter && iter->content() != ")")
     {
+        // add non-comma nodes to the structure
         if (!match(iter, ","))
         {
             child = new ASTnode(iter->content(), nullptr);
@@ -365,43 +495,59 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
         iter = iter->sibling();
 
     }
+    // iterate past )
     nextNode(iter);
     return parent;
 
 }
 
 
+/***
+ * This checks a given node to see what type of statement 
+ * needs to be parses  
+ * 
+ * @param iter current CST node
+ * @return AST structure of the statement
+ */
 ASTnode* AST::parseStatement(node *& iter) {
 
-
+    // conditional
     if (match(iter, "if"))
     {
         return parseSelectionStatement(iter);
     }
+    // block statement
     else if (match(iter, "{"))
     {
         return parseBlockStatement(iter);
     }
+    // for/while loop
     else if (match(iter,  "while") ||
              match(iter,  "for"))
     {
         return parseIterationStatement(iter);
     }
+    // return statement
     else if (match(iter,  "return"))
     {
         return parseReturnStatement(iter);
     }
+    // printf statement
     else if (match(iter,  "printf")) {
         return parsePrintfStatement(iter);
     }
+    // variable declaration
     else if (isDatatype(iter)) {
         return parseVarDeclaration(iter);
     }
+    // other identifier
     else  {
 
         node * peek = iter->sibling();
+        // check if it is an assignment statement
         if (match(peek, "=") || match(peek, "["))
             return parseAssignmentStatement(iter);
+        // not assignment, so it must be a user function call
         else
             return parseUserDefinedFunction(iter);
     }
@@ -409,28 +555,36 @@ ASTnode* AST::parseStatement(node *& iter) {
 }
 
 
-
+/***
+ * This parses "for" and "while" statements
+ * @param iter current CST node
+ * @return AST structure of the entire statement
+ */
 ASTnode * AST::parseIterationStatement(node *& iter)
 {
+    // set line number flag and node pointers
     int origLineNum = lineNum;
-
     ASTnode * parent = nullptr, * _node = parent, * child = nullptr;
 
-
+    // check if you have encountered a while loop
     if (match(iter, "while")) {
+        // catch initial node
         parent = new ASTnode("while", nullptr);
         _node = parent;
         iter = iter->sibling();
 
+        // convert the condition to post fix
         ASTnode* condition = convertToPostFix(iter);
         insert(parent,_node, condition, origLineNum);
-
         nextNode(iter);
 
+        // check if there is a block statement after the condition
         if (match(iter, "{")) {
             ASTnode* block = parseBlockStatement(iter);
             insert(parent, _node, block, origLineNum);
-        } else {
+        } 
+        // regular statement
+        else {
             ASTnode* stmt = parseStatement(iter);
             insert(parent,_node, stmt, origLineNum);
         }
@@ -485,18 +639,26 @@ ASTnode * AST::parseIterationStatement(node *& iter)
 }
 
 
+/***
+ * This parses a user function call 
+ * 
+ * @param iter current CST node
+ * @return the AST structure of the call
+ */
 ASTnode * AST::parseUserDefinedFunction(node *& iter)
 {
     int origLineNum = lineNum;
     string prev = iter->content();
 
+    // create a flag node for the call
     auto * parent = new ASTnode("call", nullptr);
     auto * child = new ASTnode(iter->content(), ST->retrieveNode(prev, iter->scope()));
     auto * _node = parent;
     insert(parent, _node, child, origLineNum);
-    iter = iter->sibling();
+    iter = iter->sibling(); // iterate to the first (
 
     while (iter && prev != ")") {
+        // insert non-comma nodes
         if ( !match(iter, ",")) {
             child = new ASTnode(iter->content(), nullptr);
             insert(parent, _node, child, origLineNum);
@@ -508,55 +670,71 @@ ASTnode * AST::parseUserDefinedFunction(node *& iter)
 }
 
 
+/***
+ * This parses an assignment statement
+ * @param iter 
+ * @return 
+ */
 ASTnode * AST::parseAssignmentStatement(node *& iter)
 {
-
+    // create a parent node with a flag node 
     auto * assignmentNode = new ASTnode(ASSIGNMENT, ST->retrieveNode(iter->content(), iter->scope()));
     auto * _node = assignmentNode;
+    // convert the entire assignment statement to post fix and insert it
     auto * child = convertToPostFix(iter);
     insert(assignmentNode, _node, child, lineNum);
-
     return assignmentNode;
 }
 
 
+/***
+ * This parses a selection statement (conditions)
+ * @param iter the current place in the CST
+ * @return an AST structure of the selection statement
+ */
 ASTnode * AST::parseSelectionStatement(node *& iter)
 {
+    // set parent node and related parameters
     int origLineNum = lineNum;
-
     auto * parent = new ASTnode("if", nullptr);
     auto * _node = parent;
     ASTnode* child = nullptr;
-    iter = iter->sibling();
+    iter = iter->sibling(); // iterate to first node of the expression
 
+    // convert the condition to post fix
     child = convertToPostFix(iter);
     insert(parent, _node, child, origLineNum);
     origLineNum = lineNum;
     nextNode(iter);
 
-
+    // if the condition has a block statement
     if (match(iter, "{")) {
         ASTnode* block = parseBlockStatement(iter);
         insert(parent, _node, block ,origLineNum);
     }
+    // single line statement
     else {
         ASTnode* stmt = parseStatement(iter);
         insert(parent,_node, stmt,origLineNum);
     }
 
 
+    // is there an else after the if statement(s)
     if (match(iter, "else")) {
 
+        // set the parent node and iterate to the next node
         child = new ASTnode("else", nullptr);
         insert(parent, _node, child, origLineNum);
         origLineNum = lineNum;
         nextNode(iter);
 
-
+        // else statement has a block statement
         if (match(iter, "{")) {
             ASTnode* block = parseBlockStatement(iter);
             insert(parent,_node, block,origLineNum);
-        } else {
+        } 
+        // it only has a single line statement
+        else {
             ASTnode* stmt = parseStatement(iter);
             insert(parent,_node, stmt,origLineNum);
         }
@@ -566,6 +744,11 @@ ASTnode * AST::parseSelectionStatement(node *& iter)
 }
 
 
+/***
+ * This function checks if a node contains only an operator
+ * @param iter current CST node
+ * @return true if the node contains an operator, false if not
+ */
 bool AST::isOperator(node * iter)
 {
     return (iter->content() == "+" || iter->content() == "-" || iter->content() == "*" ||
@@ -576,6 +759,11 @@ bool AST::isOperator(node * iter)
 }
 
 
+/***
+ * This function checks if a given string contains only an operator
+ * @param iter current string
+ * @return true if the string contains only an operator, false if not
+ */
 bool AST::isOpString(const string& iter)
 {
     return (iter == "+" || iter == "-" || iter == "*" ||
@@ -586,6 +774,11 @@ bool AST::isOpString(const string& iter)
 }
 
 
+/***
+ * This returns the precedence of a given operator
+ * @param op the given operator
+ * @return the given value of their precedence
+ */
 int AST::precedence(const string& op)
 {
     if (op == "!")
@@ -607,6 +800,11 @@ int AST::precedence(const string& op)
 }
 
 
+/***
+ * Checks if a given operator is left associative
+ * @param op the given operator
+ * @return true if it is left-associative, false if not
+ */
 bool AST::isLeftAssociative(const string& op)
 {
     if (op == "!" || op == "=" || op == "+=" || op == "-=") {
@@ -616,7 +814,12 @@ bool AST::isLeftAssociative(const string& op)
 }
 
 
-
+/***
+ * This converts a set expression and converts it to post fix
+ *
+ * @param iter current CST node
+ * @return the head node of the converted expression
+ */
 ASTnode * AST::convertToPostFix(node *& iter)
 {
     stack<string> opStack;
@@ -630,15 +833,9 @@ ASTnode * AST::convertToPostFix(node *& iter)
         if (!isOperator(iter) && !match(iter, "(") && !match(iter, ")") )
         {
 
-            if (match(iter, "'"))
+            if ((match(iter, "'")) || (match(iter, "\"")))
             {
-                child = parseSingleQuoteString(iter);
-                insert(parent, _node, child, origLineNum);
-                continue;
-            }
-            else if (match(iter, "\""))
-            {
-                child = parseDoubleQuoteString(iter);
+                child = parseString(iter);
                 insert(parent, _node, child, origLineNum);
                 continue;
             }
@@ -709,7 +906,6 @@ ASTnode * AST::convertToPostFix(node *& iter)
     return parent;
 
 }
-
 
 
 /***
