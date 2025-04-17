@@ -24,14 +24,12 @@ void symbolTable::insertST(symbolTable * ST)
         _tail = ST;
     }
 }
+
+
 /***
-
-
-
 This function checks that there is a main function inside the program
 @return: returns true if a main procedure in the program, otherwise false
 */
-
 bool symbolTable::programHasMain()
 {
     stNode * iter = _head;
