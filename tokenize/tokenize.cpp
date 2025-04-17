@@ -372,13 +372,11 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
     char curChar, prevChar;
     bool variableDeclaration, functionDeclaration, funcName;
     // error flags
-    bool integerError = false, arrSizeError = false, declarationError = false,
-         funcDecError = false, quoteError = false, parenthesesError = false;
+    bool integerError = false;
 
     auto * TL = new tokenList;
     token *_token = nullptr;
     bool startFunction = false, inFunction = false;
-//    int prevScope = 0, scope = 0;
     vector<string> variableNames;
 
     inFS.open(inputFile);
@@ -467,24 +465,15 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
                             startFunction = true;
                             if (curText == "function")
                                 functionDeclaration = true;
-//                            prevScope++;
-//                            scope = prevScope;
-//                            _token = new token("scope", to_string(scope));
                             TL->insert(_token);
                         }
                         else if (functionDeclaration)
                         {
-                            if (!checkReserveWord(curText, POSSIBLE_RETURN_TYPES))
-                            {
-//                                funcDecError = true;
-//                                goto functionError;
-                            }
                             if (isInt(curText))
                             {
-//                                integerError = true;
-//                                goto intError;
+                                integerError = true;
+                                goto intError;
                             }
-
                             functionDeclaration = false;
                             variableDeclaration = true;
                             funcName = true;
@@ -496,27 +485,12 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
                         }
                         else if (variableDeclaration)
                         {
-                            // if the current token is a function name, ensure it is not one of the function
-                            // reserve words
-                            if (funcName && checkReserveWord(curText, FUNCTION_SPECIFIC_RESERVES))
-                            {
-//                                funcDecError = true;
-//                                goto functionError;
-                            }
-                            else if (checkReserveWord(curText, VAR_RESERVED_WORDS))
-                            {
-                                if (funcName)
-                                {
-//                                    funcDecError = true;
-//                                    goto functionError;
-                                }
-//                                declarationError = true;
-//                                goto decError;
-                            }
+
+                            // check for invalid integer placement in an identifier
                             if (isInt(curText))
                             {
-//                                integerError = true;
-//                                goto intError;
+                                integerError = true;
+                                goto intError;
                             }
                             if (!funcName)
                                 variableNames.push_back(curText);
@@ -531,8 +505,8 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
                         // string is not entirely an integer, check if invalid integer placement in name
                         else if (checkInvalidIntegerError(curText))
                         {
-//                            integerError = true;
-//                            goto intError;
+                            integerError = true;
+                            goto intError;
                         }
                         else
                         {
@@ -571,11 +545,6 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
                         _token = new token("INTEGER", curText);
                         curText.clear(); // empty the string
                     }
-                    else
-                    {
-//                        arrSizeError = true;
-//                        goto sizeError;
-                    }
 
                 }
                 // add the char to curText if it is not a space
@@ -597,18 +566,6 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
 
         }
 
-//        if (stateNum == 3 || stateNum == 4)
-//        {
-//            quoteError = true;
-//            goto invalidQuote;
-//        }
-//
-//        if (parenthesesCtr != 0)
-//        {
-//            parenthesesError = true;
-//            goto parError;
-//
-//        }
 
         if (startFunction && bracketCtr != 0)
         {
@@ -617,11 +574,7 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
         }
         else if (inFunction && bracketCtr == 0)
         {
-//            scope = 0;
             inFunction = false;
-
-//            _token = new token("scope", to_string(scope));
-//            TL->insert(curToken, _token);
         }
 
 
@@ -634,56 +587,13 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
     }
     inFS.close();
 
-    // list of error checks
-//    if (bracketCtr != 0)
-//    {
-//        outFS  << "Syntax error: unclosed/unnecessary bracket\n";
-//        return nullptr;
-//    }
-//
-//    parError:
-//    if (parenthesesError)
-//    {
-//        outFS  << "Syntax error on line " << lineNum << ": parentheses error\n";
-//        return nullptr;
-//    }
-//
-//    intError:
-//    if (integerError)
-//    {
-//        outFS  << "Syntax error on line " << lineNum << ": invalid integer\n";
-//        return nullptr;
-//    }
-//
-//    decError:
-//    if (declarationError)
-//    {
-//        outFS << "Syntax error on line " << lineNum << ": reserved word \"" << curText << "\" cannot"
-//        << " be used for the name of a variable\n";
-//        return nullptr;
-//    }
-//
-//    functionError:
-//    if (funcDecError)
-//    {
-//        outFS << "Syntax error on line " << lineNum << ": reserved word \"" << curText << "\" cannot"
-//             << " be used for the name of a function\n";
-//        return nullptr;
-//    }
-//
-//    invalidQuote:
-//    if (quoteError)
-//    {
-//        outFS << "Syntax error on line " << lineNum << ": unterminated quote\n";
-//        return nullptr;
-//    }
-//
-//    sizeError:
-//    if (arrSizeError)
-//    {
-//        outFS << "Syntax error on line " << lineNum << ": array declaration size must be a positive integer\n";
-//        return nullptr;
-//    }
+    intError:
+    if (integerError)
+    {
+        outFS  << "Syntax error on line " << lineNum << ": invalid integer\n";
+        return nullptr;
+    }
+
     outFS.close();
     TL->output(outputFile);
 
