@@ -955,7 +955,7 @@ void AST::traverseAST(ASTnode * head, ofstream& outFS)
 
     if (head->child())
     {
-        outFS << "null\n\n" << setw(lineWid);
+        outFS << "null\n" << setw(lineWid);
         traverseAST(head->child(), outFS);
         lineWid = ORIGINAL_LENGTH;
 
