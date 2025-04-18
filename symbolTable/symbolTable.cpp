@@ -23,19 +23,43 @@ void symbolTable::insertST(symbolTable * ST)
         _tail->_next = ST;
         _tail = ST;
     }
+    // add to its function node
+    addParamList(ST);
 }
 
 
 /***
-This function checks that there is a main function inside the program
-@return: returns true if a main procedure in the program, otherwise false
-*/
+ * This adds a parameter list pointer to its function symbol table
+ * counterpart
+ * @param PL the symbol table to be added
+ */
+void symbolTable::addParamList(symbolTable * PL)
+{
+    if (_head)
+    {
+        stNode * iter = _head;
+        while (iter)
+        {
+            if (iter->type() == "function")
+            {
+                if (iter->idName() == PL->_name)
+                {
+                    iter->addST(PL);
+                    return;
+                }
+            }
+            iter = iter->next();
+        }
+    }
+}
+
+
 bool symbolTable::programHasMain()
 {
     stNode * iter = _head;
     while (iter)
     {
-        if (iter->idName() == "main" && iter->type() == "function")
+        if (iter->idName() == "main" && (iter->type() == "function") || (iter->type() == "procedure"))
             return true;
         iter = iter->next();
     }
@@ -181,7 +205,12 @@ void symbolTable::deleteNodes()
 }
 
 
-
+/***
+ * This retrieves a node from a symbol table (used for AST nodes)
+ * @param name name of the variable
+ * @param scope scope of the variable
+ * @return pointer to the STnode if it exists
+ */
 stNode * symbolTable::retrieveNode(const string& name, const int& scope)
 {
     symbolTable * tableIter = this;
