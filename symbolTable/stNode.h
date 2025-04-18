@@ -5,7 +5,9 @@
 #ifndef ASSIGNMENT4_STNODE_H
 #define ASSIGNMENT4_STNODE_H
 #include <string>
+#include <utility>
 using namespace std;
+class symbolTable;
 
 
 class stNode {
@@ -13,25 +15,30 @@ class stNode {
 public:
 
     // non-arrays
-    stNode(string name, string _type, string dataType, int programScope): _idName{name},
-     _idType{_type}, _dataType{dataType}, _isArr{false}, _arrSize{0}, _scope{programScope},
-     _next{nullptr}, _value{new string[1]} {}
+    stNode(string name, string _type, string dataType, int programScope): _idName{std::move(name)},
+     _idType{std::move(_type)}, _dataType{std::move(dataType)}, _isArr{false}, _arrSize{0}, _scope{programScope},
+     _next{nullptr}, _paramList{nullptr} {}
 
     // arrays
     stNode(string name, string _type, string dataType, bool isArray, int size, int programScope):
-    _idName{name},_idType{_type}, _dataType{dataType}, _isArr{isArray}, _arrSize{size},
-    _scope{programScope}, _next{nullptr}, _value{new string[size]} {}
+    _idName{std::move(name)},_idType{std::move(_type)}, _dataType{std::move(dataType)}, _isArr{isArray}, _arrSize{size},
+    _scope{programScope}, _next{nullptr}, _paramList{nullptr} {}
 
     // functions
-    void next(stNode * ST) { _next = ST; }
+    void next(stNode * nextNode) { _next = nextNode; }
+    void addST(symbolTable * _st) { _paramList = _st; }
+
     stNode * next() { return _next; }
+    symbolTable * paramList() { return _paramList; }
+
     string idName() { return _idName; }
     string type() { return _idType; }
     string dataType() { return _dataType; }
-    bool isArr() { return _isArr; }
-    int size() { return _arrSize; }
-    int scope() { return _scope; }
-    string * _value;
+
+    [[nodiscard]] bool isArr() const { return _isArr; }
+    [[nodiscard]] int size() const { return _arrSize; }
+    [[nodiscard]] int scope() const { return _scope; }
+
 
 private:
 
@@ -42,6 +49,7 @@ private:
     int _arrSize;
     int _scope;
     stNode * _next;
+    symbolTable * _paramList;
 
 };
 
