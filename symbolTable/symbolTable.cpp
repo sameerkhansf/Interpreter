@@ -54,6 +54,10 @@ void symbolTable::addParamList(symbolTable * PL)
 }
 
 
+/***
+ * This function checks if a program has a main function/procedure
+ * @return true if there is a main, false if not
+ */
 bool symbolTable::programHasMain()
 {
     stNode * iter = _head;
@@ -206,7 +210,7 @@ void symbolTable::deleteNodes()
 
 
 /***
- * This retrieves a node from a symbol table (used for AST nodes)
+ * This retrieves a node from a symbol table (generally used for AST nodes)
  * @param name name of the variable
  * @param scope scope of the variable
  * @return pointer to the STnode if it exists
@@ -220,7 +224,7 @@ stNode * symbolTable::retrieveNode(const string& name, const int& scope)
         iter = tableIter->_head;
         if (tableIter->_name.empty() || tableIter->head()->scope() == scope) {
             while (iter) {
-                if (iter->idName() == name && iter->scope() == scope ) {
+                if (iter->idName() == name && (iter->scope() == scope || iter->type() == "function")) {
                     return iter;
                 }
                 iter = iter->next();
@@ -230,5 +234,34 @@ stNode * symbolTable::retrieveNode(const string& name, const int& scope)
         tableIter = tableIter->_next;
     }
     return nullptr;
+}
+
+
+
+/***
+ * This retrieves a node from a symbol table (generally used for AST nodes)
+ * @param name name of the variable
+ * @param scope scope of the variable
+ * @return pointer to the STnode if it exists
+ */
+bool symbolTable::exists(const string& name, const int& scope)
+{
+    symbolTable * tableIter = this;
+    stNode * iter;
+    while(tableIter)
+    {
+        iter = tableIter->_head;
+        if (tableIter->_name.empty() || tableIter->head()->scope() == scope) {
+            while (iter) {
+                if (iter->idName() == name && (iter->scope() == scope) || (iter->scope() == 0)) {
+                    return true;
+                }
+                iter = iter->next();
+
+            }
+        }
+        tableIter = tableIter->_next;
+    }
+    return false;
 }
 
