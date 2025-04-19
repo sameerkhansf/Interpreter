@@ -27,6 +27,7 @@ public:
     void next(symbolTable * ST) { _next = ST; }
 
     bool inUse(stNode * node, int& foundScope);
+    bool exists(const string& name, const int& scope);
     bool programHasMain();
 
     stNode * head() { return _head; }
