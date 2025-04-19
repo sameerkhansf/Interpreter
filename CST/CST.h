@@ -26,9 +26,13 @@ public:
 
     // insertion/traversal functions
     void insert(node *& parent, node *& curNode, node *& _node, node * lastNode, int origLineNum);
-    void insertSibling(node *& parent, node *& curNode, node *& _node, node * lastNode);
-    void insertChild(node *& parent, node *& curNode, node *& _node, node * lastNode);
+    static void insertSibling(node *& parent, node *& curNode, node *& _node, node * lastNode);
+    static void insertChild(node *& parent, node *& curNode, node *& _node, node * lastNode);
     void outputTraversal(const string& outputFile);
+    void parseEndlToken(token *& iter);
+    static node * getLastNode(node * _node);
+    static void deleteNodes(node * _node);
+    static void parseUntilEndl(token *& iter);
 
     // parsing functions
     node * parse(token *& iter, ofstream&);
@@ -37,7 +41,6 @@ public:
     node * parseFunction(token *& iter, ofstream&);
     node * parseNumericalExpression(token *& iter, ofstream&);
     node * parseBooleanExpression(token *& iter, ofstream&);
-    node * parseInitializationExpression(token *& iter, ofstream&);
     node * parseExpression(token *& iter, ofstream&);
     node * parseSelectionStatement(token *& iter, ofstream&);
     node * parseIterationStatement(token *& iter, ofstream&);
@@ -45,6 +48,9 @@ public:
     node * parsePrintfStatement(token *& iter, ofstream&);
     node * parseGetCharFunction(token *& iter, ofstream&);
     node * parseUserDefinedFunction(token *& iter, ofstream&);
+    node * parseUserDefinedFunctionStatement( token *& iter, ofstream& outFS);
+    node * parseBracket( token *& iter, ofstream &outFS, node *& parent, node *& child, node *& _node,
+                         const string& variableName, const int& origLineNum);
     node * parseDeclarationStatement(token *& iter, ofstream&);
     node * parseReturnStatement(token *& iter, ofstream&);
     node * parseStatement(token *& iter, ofstream&);
@@ -52,23 +58,19 @@ public:
     node * parseBlockStatement(token *& iter, ofstream&);
     node * parseParameterList(token *& iter, ofstream&);
     node * parseProcedureDeclaration(token *& iter, ofstream&);
-    node * parseRelationalStatement(token *& iter, ofstream&);
     node * parseIdentifierAndIdentifierArrayList(token *& iter, ofstream&);
     node * parseIncrementStatement(token *& iter, ofstream&);
-    node* parseFactor(token *& iter, ofstream&);
-    bool match(token *& iter, const string& expected);
-    node* parseTerm(token *& iter, ofstream&);
-    bool matchType(token *& iter, const string& expected);
-    bool isDatatype(token *& iter, ofstream&);
-    static bool isBooleanOperator(token *& iter);
-    node * getLastSibling(node *_node);
-    void parseEndlToken(token *& iter);
-    node * getLastNode(node * _node);
-    void deleteNodes(node * _node);
-    token * parseUntilEndL(token * iter);
-    bool hasErrors() { return errorDetected; }
-    symbolTable * createPL(node * iter, ofstream& outFS);
+    node * parseFactor(token *& iter, ofstream&);
+    node * parseTerm(token *& iter, ofstream&);
     node * root() { return head; }
+    symbolTable * createPL(node * iter, ofstream& outFS);
+
+    bool match(token *& iter, const string& expected);
+    bool matchType(token *& iter, const string& expected);
+    bool isDatatype(token *& iter);
+    static bool isBooleanOperator(token *& iter);
+    [[nodiscard]] bool hasErrors() const { return errorDetected; }
+
 
 private:
     node * head;
