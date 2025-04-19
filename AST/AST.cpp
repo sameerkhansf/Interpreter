@@ -239,8 +239,16 @@ ASTnode * AST::parseVarDeclaration(node *& iter)
         iter = iter->sibling();
         while (iter && !match(iter, ";"))
         {
-//            lineNum++; // use if you want multiple declarations on the same line to appear as children
+            lineNum++; // use if you want multiple declarations on the same line to appear as children
             if (!match(iter, ",")) {
+                if (match(iter, "["))
+                {
+                    iter = iter->sibling(); // iterate past the first bracket
+                    iter = iter->sibling(); // iterate past the index variable
+                    iter = iter->sibling(); // iterate past the end bracket
+                    if (match(iter, ";"))
+                        break;
+                }
                 child = new ASTnode(DECLARATION, ST->retrieveNode(iter->content(), iter->scope()));
                 insert(parent, _node, child, origLineNum);
             }
@@ -267,6 +275,7 @@ ASTnode * AST::parseFunctionDeclaration(node *& iter)
     int originalLineNum = lineNum;
     int scope = iter->scope();
 
+    // check if function
     if (iter->content() == "function")
         iter = iter->sibling(); // iterate to return type
     iter = iter->sibling(); // iterate to name
@@ -284,9 +293,7 @@ ASTnode * AST::parseFunctionDeclaration(node *& iter)
     auto * child = parseBlockStatement(iter);
     // insert it
     insert(declarationNode, _node, child, originalLineNum);
-
     return declarationNode;
-
 }
 
 
@@ -473,7 +480,7 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
     auto * parent = new ASTnode("printf", nullptr);
     auto * _node = parent;
     ASTnode * child = nullptr;
-    
+
     iter = iter->sibling(); // iterate to (
     iter = iter->sibling(); // iterate past
     iter = iter->sibling(); // iterate past quote
@@ -503,9 +510,9 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
 
 
 /***
- * This checks a given node to see what type of statement 
- * needs to be parses  
- * 
+ * This checks a given node to see what type of statement
+ * needs to be parses
+ *
  * @param iter current CST node
  * @return AST structure of the statement
  */
@@ -582,7 +589,7 @@ ASTnode * AST::parseIterationStatement(node *& iter)
         if (match(iter, "{")) {
             ASTnode* block = parseBlockStatement(iter);
             insert(parent, _node, block, origLineNum);
-        } 
+        }
         // regular statement
         else {
             ASTnode* stmt = parseStatement(iter);
@@ -640,8 +647,8 @@ ASTnode * AST::parseIterationStatement(node *& iter)
 
 
 /***
- * This parses a user function call 
- * 
+ * This parses a user function call
+ *
  * @param iter current CST node
  * @return the AST structure of the call
  */
@@ -672,12 +679,12 @@ ASTnode * AST::parseUserDefinedFunction(node *& iter)
 
 /***
  * This parses an assignment statement
- * @param iter 
- * @return 
+ * @param iter
+ * @return
  */
 ASTnode * AST::parseAssignmentStatement(node *& iter)
 {
-    // create a parent node with a flag node 
+    // create a parent node with a flag node
     auto * assignmentNode = new ASTnode(ASSIGNMENT, ST->retrieveNode(iter->content(), iter->scope()));
     auto * _node = assignmentNode;
     // convert the entire assignment statement to post fix and insert it
@@ -732,7 +739,7 @@ ASTnode * AST::parseSelectionStatement(node *& iter)
         if (match(iter, "{")) {
             ASTnode* block = parseBlockStatement(iter);
             insert(parent,_node, block,origLineNum);
-        } 
+        }
         // it only has a single line statement
         else {
             ASTnode* stmt = parseStatement(iter);
@@ -930,7 +937,6 @@ void AST::output(const string& outputFile)
     outFS.close();
 
 }
-
 
 
 #include <iomanip>
