@@ -539,12 +539,14 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
                 }
                 case 14:
                 {
-                    // if curText is not a pos number, check if it is a variable name
-                    if (curText[0] != '-' && isInt(curText) || checkReserveWord(curText, variableNames))
+                    // array index is either a number or an identifier
+                    if (isInt(curText))
                     {
                         _token = new token("INTEGER", curText);
-                        curText.clear(); // empty the string
                     }
+                    else
+                        _token = new token("IDENTIFIER", curText);
+                    curText.clear(); // empty the string
 
                 }
                 // add the char to curText if it is not a space
