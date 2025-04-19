@@ -2,14 +2,23 @@
 // Originally created by Nathan Mailloux on 2/28/2025.
 //
 
+
 #include "CST.h"
+#include <cassert>
 #include <iostream>
 #include <utility>
 #include <fstream>
-#include <cassert>
 using namespace std;
 
-CST::CST(token *tokenHead, const string &outputFile, symbolTable *ST)
+
+/***
+ * This is the main constructor for the CST
+ * @param tokenHead head token node
+ * @param outputFile the output file that will hold errors if encountered
+ * @param ST the symbol table to be populated throughout the process
+ * of constructing the CST
+ */
+CST::CST(token * tokenHead, const string& outputFile, symbolTable * ST)
 {
     ofstream outFS;
     this->ST = ST;
@@ -23,16 +32,27 @@ CST::CST(token *tokenHead, const string &outputFile, symbolTable *ST)
     if (!outFS.is_open())
         throw runtime_error("CST FILE DID NOT OPEN\n");
 
-    head = nullptr;
     head = parse(tokenHead, outFS);
 
     outFS.close();
+
 }
 
-void CST::insert(node *&parent, node *&curNode, node *&_node, node *lastNode, int origLineNum)
+
+/***
+ * This is the main insertion function that uses two helper functions
+ * (insertSibling and insertChild) depending on if the line number changed
+ * during the creation of the child node
+ *
+ * @param parent current parent node in the structure
+ * @param curNode current place in the structure
+ * @param _node the child node to be inserted
+ * @param lastNode the last node of the child node structure
+ * @param origLineNum the original line number prior to the creation of the child node
+ */
+void CST::insert(node *& parent, node *& curNode, node *& _node, node * lastNode, int origLineNum)
 {
-    if (_node)
-    {
+    if (_node) {
         if (origLineNum == lineNum)
             insertSibling(parent, curNode, _node, lastNode);
         else
@@ -40,12 +60,22 @@ void CST::insert(node *&parent, node *&curNode, node *&_node, node *lastNode, in
     }
 }
 
-void CST::insertSibling(node *&parent, node *&curNode, node *&_node, node *lastNode)
-{
 
+/***
+ * This function inserts a node as a sibling to the CST
+ *
+ * @param parent current root node of the CST structure
+ * @param curNode current place in the structure
+ * @param _node child (root node of that set structure) node to be inserted
+ * @param lastNode the last node of the child structure
+ */
+void CST::insertSibling(node *& parent, node *& curNode, node *& _node, node * lastNode)
+{
+    // ensure the child node is not null
     if (!_node)
         return;
 
+    // CST is empty
     if (!parent)
     {
         parent = _node;
@@ -53,6 +83,7 @@ void CST::insertSibling(node *&parent, node *&curNode, node *&_node, node *lastN
     }
     else
     {
+        // assert to ensure that the current node is not null
         assert(curNode);
         curNode->sibling(_node);
         curNode = lastNode;
@@ -60,12 +91,22 @@ void CST::insertSibling(node *&parent, node *&curNode, node *&_node, node *lastN
     _node = nullptr;
 }
 
-void CST::insertChild(node *&parent, node *&curNode, node *&_node, node *lastNode)
-{
 
+/***
+ * This function inserts a node as a child to the CST
+ *
+ * @param parent current root node of the CST structure
+ * @param curNode current place in the structure
+ * @param _node child (root node of that set structure) node to be inserted
+ * @param lastNode the last node of the child structure
+ */
+void CST::insertChild(node *& parent, node *& curNode, node *& _node, node * lastNode)
+{
+    // ensure the node is not null
     if (!_node)
         return;
 
+    // CST is currently empty
     if (!parent)
     {
         parent = _node;
@@ -73,6 +114,7 @@ void CST::insertChild(node *&parent, node *&curNode, node *&_node, node *lastNod
     }
     else
     {
+        // assert to ensure that the current node is not null
         assert(curNode);
         curNode->child(_node);
         curNode = lastNode;
@@ -80,10 +122,14 @@ void CST::insertChild(node *&parent, node *&curNode, node *&_node, node *lastNod
     _node = nullptr;
 }
 
-void CST::deleteNodes(node *_node)
-{
 
-    node *temp = nullptr;
+/***
+ * This delete all the nodes in a CST (used in the destructor)
+ * @param _node root node of the structure to be deallocated
+ */
+void CST::deleteNodes(node * _node)
+{
+    node * temp = nullptr;
     while (_node)
     {
         temp = _node;
@@ -104,112 +150,122 @@ void CST::deleteNodes(node *_node)
     delete _node;
 }
 
-token *CST::parseUntilEndL(token *iter)
+
+/***
+ * This gets the last/end node in a CST structure
+ *
+ * @param root the root node of the structure
+ * @return the last node of the structure if
+ * the root is not null (otherwise return the itself which is null)
+ */
+node* CST::getLastNode(node* root)
 {
-    if (!iter)
-        return iter;
-    while (iter && (!iter->isEndlToken() || !iter->isScope()))
-        iter = iter->next();
-    return iter;
-}
-
-node *CST::getLastNode(node *root)
-{
-
-    if (!root)
-        return nullptr;
-
-    node *iter = root;
-
-    while (iter)
-    {
-
+    node* iter = root;
+    while (iter) {
+        // iterate to the last sibling
         while (iter->sibling())
             iter = iter->sibling();
-
-        if (iter->child())
-        {
+        // check if it has a child
+        if (iter->child()) {
             iter = iter->child();
-        }
-        else
-        {
+        } else {
 
             break;
         }
     }
-
     return iter;
 }
 
-token *lastToken(token *TL)
-{
-    while (TL && TL->next())
-        TL = TL->next();
-    return TL;
-}
 
-node *CST::parse(token *&iter, ofstream &outFS)
-{
+/***
+ * This is the main (overhead) parse function that starts
+ * the recursive descent
+ *
+ * @param iter the iterator node for the token list
+ * @param outFS the output file stream
+ * @return the root node of the CST
+ */
+node * CST::parse(token *& iter, ofstream& outFS) {
 
+    // if the token list is empty, return immediately
     if (!iter)
         return nullptr;
 
-    node *parent = nullptr, *_node = parent, *child = nullptr;
+    // initialize main node pointers
+    node * parent = nullptr, *_node = parent, * child = nullptr;
     int origLineNum = lineNum;
 
     while (iter)
     {
+        // reset line change flag variable
         origLineNum = lineNum;
         if (iter->isEndlToken())
         {
-            if (iter->next())
-            {
+            // if there are more nodes after current, enter the parseEndl function
+            if (iter->next()) {
                 parseEndlToken(iter);
             }
-            else
-            {
+            // manually iterate for simplicity
+            else {
                 iter = iter->next();
                 lineNum++;
             }
             continue;
         }
+        // procedure
         if (match(iter, "procedure"))
             child = parseProcedureDeclaration(iter, outFS);
+        // function
         else if (match(iter, "function"))
             child = parseFunction(iter, outFS);
-        else if (isDatatype(iter, outFS))
-            child = parseDeclarationStatement(iter, outFS);
+        // global variable
+        else if (isDatatype(iter))
+            child =  parseDeclarationStatement(iter, outFS);
         else
         {
+            // this is for an invalid statement in the global scope
             errorDetected = true;
             outFS << "Syntax error on line " << lineNum << ": INVALID STATEMENT";
         }
-
+        // insert the child node and flush the file stream to immediately report errors (if encountered)
         insert(parent, _node, child, getLastNode(child), origLineNum);
         outFS.flush();
+        // reset scope to 0
         curScope = 0;
     }
-
+    // return parent node of the created CST structure
     return parent;
+
 }
 
-node *CST::parseSingleQuoteString(token *&iter, ofstream &outFS)
-{
 
+/***
+ * This parses a single quote string
+ *
+ * @param iter the current node in the token list
+ * @param outFS the file stream for errors
+ * @return root node of the CST structured string (if formatted correctly)
+ */
+node * CST::parseSingleQuoteString(token *& iter, ofstream& outFS)
+{
+    // ensure the current node is not null
     if (!iter)
         return nullptr;
-    int origLineNum = lineNum;
 
+    int origLineNum = lineNum;
+    // check if the statement starts with a single quote
     if (!matchType(iter, "SINGLE_QUOTE"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED SINGLE QUOTE\n";
     }
 
-    auto *parent = new node("\'", curScope);
-    node *_node = parent;
+    // create a node for the opening quote
+    auto * parent = new node("\'", curScope);
+    node * _node = parent;
     iter = iter->next();
 
+    // ensure that the string follows the structure of an empty/non-empty string
     if (!matchType(iter, STRING) && !matchType(iter, STRING) &&
         !matchType(iter, "SINGLE_QUOTE"))
     {
@@ -217,504 +273,560 @@ node *CST::parseSingleQuoteString(token *&iter, ofstream &outFS)
         outFS << "Syntax error on line " << lineNum << ": EXPECTED STRING/END QUOTE\n";
     }
 
-    if (matchType(iter, STRING))
-    {
+    // if the string is not empty, create a node for the inside string and insert it
+    if (matchType(iter, STRING)) {
         auto *child = new node(iter->content(), curScope);
         insert(parent, _node, child, getLastNode(child), origLineNum);
         iter = iter->next();
     }
+    // ensure there is a closing quote for the string
     if (!match(iter, "\'"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED END QUOTE\n";
     }
 
-    auto *child = new node(iter->content(), curScope);
+    // create a node for the ending quote
+    auto * child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
+    // iterate past the end quote
     iter = iter->next();
     return parent;
 }
 
-void CST::parseEndlToken(token *&iter)
-{
 
-    while (iter && (iter->isScope() || iter->isEndlToken()))
-    {
+/***
+ * This parses past the end line token
+ * @param iter the current node in the token list
+ */
+void CST::parseEndlToken(token *& iter) {
+
+    while (iter && iter->isEndlToken()) {
         if (iter->isEndlToken())
             lineNum++;
         iter = iter->next();
     }
+
 }
 
-node *CST::parseAssignmentStatement(token *&iter, ofstream &outFS)
+
+/***
+ * This parses until to the token right before an end line token,
+ * this is used in some error statements
+ *
+ * @param iter current node in the token list
+ */
+void CST::parseUntilEndl(token *& iter)
+{
+    // iterate past all the tokens until the end line
+    while (iter && !iter->isEndlToken())
+        iter = iter->next();
+}
+
+
+/***
+ * This parses an assignment statement
+ *
+ * @param iter the current node in the token list
+ * @param outFS the file stream for errors
+ * @return the root node of the assignment statement structure
+ */
+node * CST::parseAssignmentStatement(token *& iter, ofstream& outFS)
 {
 
-    // symbol table parameters
-    string idName, idType = "datatype", datatype = "unknown";
-    int size = 0;
-    bool isArr = false;
-
     int origLineNum = lineNum;
+    // ensure the statement starts with an identifier
     if (!matchType(iter, IDENTIFIER))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected identifier\n";
     }
 
-    idName = iter->content();
-    auto *parent = new node(iter->content(), curScope);
-    node *child, *_node = parent;
+    // create the parent node with the identifier
+    auto * parent = new node(iter->content(), curScope);
+    string variableName = iter->content(); // used to reference the symbol table
+    node * child, * _node = parent;
     iter = iter->next();
 
-    if (match(iter, "["))
-    {
-
-        isArr = true;
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-
-        iter = iter->next();
-
-        if (!matchType(iter, INTEGER))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected array index as integer\n";
-        }
-
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
-
-        if (!match(iter, "]"))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected closing ']' for array declaration\n";
-        }
-
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
+    // check if you are referencing an index
+    if (match(iter, "[")) {
+        parseBracket(iter, outFS, parent, child, _node, variableName, origLineNum);
     }
 
-    //    // ensure the variable has been declared using a temporary ST node
-    //    auto * test = new stNode(idName, idType, datatype, isArr, size, curScope);
-    //    int foundScope;
-    //    if (!ST->inUse(test, foundScope))
-    //    {
-    //       errorDetected = true;
-    //       outFS << "Error on line " << lineNum << ": variable \"" << idName << "\" has not been declared\n";
-    //    }
-    //    delete test;
-
+    // ensure there is an assignment operator in the expression
     if (!match(iter, "="))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected ASSIGNMENT OPERATOR\n";
     }
 
+    // catch the assignment operator
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
-    if (match(iter, "\""))
-    {
-        child = parseDoubleQuoteString(iter, outFS);
-    }
-    else if (match(iter, "'"))
-    {
-        child = parseSingleQuoteString(iter, outFS);
-    }
-    else if (matchType(iter, INTEGER))
-    {
-        child = parseExpression(iter, outFS);
-    }
-    else if (match(iter, "getChar"))
-    {
-        child = parseGetCharFunction(iter, outFS);
-    }
-    else if (matchType(iter, IDENTIFIER))
-    {
+    // create a child node from the expression after the assigment
+    child = parseExpression(iter, outFS);
 
-        token *peek = iter->next();
-        if (match(peek, "("))
-        {
-            child = parseUserDefinedFunction(iter, outFS);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            return parent;
-        }
-        else
-            child = parseExpression(iter, outFS);
-    }
-    else
-    {
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": invalid assignment statement\n";
-        }
-    }
-
+    // insert the child node from the expression
     insert(parent, _node, child, getLastNode(child), origLineNum);
 
+    // ensure the line ends with a semicolon
     if (!match(iter, ";"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected SEMICOLON\n";
     }
 
+    // catch the semicolon
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
+    // parse until next actual node
     parseEndlToken(iter);
 
     return parent;
+
 }
 
-node *CST::parseIncrementStatement(token *&iter, ofstream &outFS)
+
+/***
+ * This function parses an increment statement (used in for loops)
+ *
+ * @param iter current node in token list
+ * @param outFS file stream for errors
+ * @return root node of the increment statement
+ */
+node * CST::parseIncrementStatement(token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
+    // ensure statement starts with an identifier
     if (!matchType(iter, IDENTIFIER))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected identifier\n";
     }
 
-    auto *parent = new node(iter->content(), curScope);
-    node *child, *_node = parent;
+    // catch the identifier
+    auto * parent = new node(iter->content(), curScope);
+    node * child, * _node = parent;
     iter = iter->next();
 
+    // check for assigment operator
     if (!match(iter, "="))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected ASSIGNMENT OPERATOR\n";
     }
 
+    // catch assigment operator
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
-    if (matchType(iter, INTEGER))
-    {
-        child = parseExpression(iter, outFS);
-    }
-    else if (matchType(iter, IDENTIFIER))
-    {
-        token *peek = iter->next();
-        if (match(peek, "("))
-        {
-            child = parseUserDefinedFunction(iter, outFS);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            return parent;
-        }
-        else
-            child = parseExpression(iter, outFS);
-    }
-    else
-    {
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": invalid assignment statement\n";
-        }
-    }
-
+    // catch the expression after the assignment operator
+    child = parseExpression(iter, outFS);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     return parent;
+
 }
 
-node *CST::parseDoubleQuoteString(token *&iter, ofstream &outFS)
-{
+
+/***
+ * This function parses a double quote string
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the DQS
+ */
+node * CST::parseDoubleQuoteString(token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
+    // ensure the statement starts with a double quote
     if (!match(iter, "\""))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED DOUBLE QUOTE\n";
     }
 
-    auto *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
+    // catch the double quote
+    auto * parent = new node(iter->content(), curScope);
+    node * _node = getLastNode(parent);
     iter = iter->next();
 
+    // ensure that the string follows the structure of empty/non-empty strings
     if (!matchType(iter, STRING) && !matchType(iter, "DOUBLE_QUOTE"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED DOUBLE STRING/END QUOTE\n";
     }
 
+    // if the string is non-empty
     if (matchType(iter, STRING))
     {
+        // catch the contained string and insert it
         auto *child = new node(iter->content(), curScope);
         insert(parent, _node, child, getLastNode(child), origLineNum);
         iter = iter->next();
     }
-
+    // ensure there is a closing quote
     if (!match(iter, "\""))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": NO ENDING DOUBLE QUOTE\n";
     }
-
-    auto *child = new node(iter->content(), curScope);
+    // catch closing quote
+    auto * child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
-
     return parent;
+
 }
 
-node *CST::parseCompoundStatement(token *&iter, ofstream &outFS)
-{
+
+/***
+ * This is a helper function that recursively parses statements for the block statement
+ * parsing function
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return
+ */
+node* CST::parseCompoundStatement( token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
-    if (!iter)
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": NO STATEMENT IN BRACKETS\n";
-    }
+    node* parent = nullptr;
+    node* _node = parent;
+    node * child = nullptr;
 
-    node *parent = nullptr;
-    node *_node = parent;
-    node *child = nullptr;
-
-    while (iter && iter->content() != "}")
-    {
+    // iterate while there are statements in the brackets
+    while (iter && iter->content()!= "}") {
+        // catch the statement and insert it
         child = parseStatement(iter, outFS);
         insert(parent, _node, child, getLastNode(child), origLineNum);
-        //        if (!match(iter, "}"))
-        //        {
-        //            origLineNum = lineNum;
-        //        }
         parseEndlToken(iter);
     }
-
+    // return the end structure
     return parent;
 }
 
-node *CST::parseBlockStatement(token *&iter, ofstream &outFS)
-{
+
+/***
+ * This parses block statements for conditionals, functions, and loops
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the block statement
+ */
+node* CST::parseBlockStatement( token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
+    // ensure the statement begins with a left bracket
     if (!match(iter, "{"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected '{' to start block\n";
     }
 
-    node *parent = new node(iter->content(), curScope);
-    node *_node = parent;
-    node *child;
+    // catch beginning bracket and initialize other pointers
+    node* parent = new node(iter->content(), curScope);
+    node* _node = parent;
+    node* child = nullptr;
     iter = iter->next();
 
+    // parse to next actual token
     parseEndlToken(iter);
 
-    node *body = parseCompoundStatement(iter, outFS);
+    // parse the statements contained in the brackets
+    node* body = parseCompoundStatement(iter, outFS);
     insert(parent, _node, body, getLastNode(body), origLineNum);
 
+    // parse to next actual token
     parseEndlToken(iter);
 
+    // ensure there is a closing bracket after the statements
     if (!match(iter, "}"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected '}' to close block\n";
     }
 
+    // catch closer bracket and return
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
-
     return parent;
 }
 
-node *CST::parseStatement(token *&iter, ofstream &outFS)
-{
+
+/***
+ * This is the main statement parsing function that determines which
+ * helper function to be called
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return
+ */
+node* CST::parseStatement(token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
+    // ensure the iterator is not null
     if (!iter)
     {
         errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": STATEMENT EXPECTED BUT IS NULL\n";
+        outFS << "Syntax error on line " << lineNum << ": Statement expected but pointer is null\n";
     }
+    // conditional statement
     if (match(iter, "if"))
     {
         return parseSelectionStatement(iter, outFS);
     }
+    // block statement
     else if (match(iter, "{"))
     {
         return parseBlockStatement(iter, outFS);
     }
-    else if (match(iter, "while") ||
-             match(iter, "for"))
+    // iteration statement
+    else if (match(iter,  "while") ||
+             match(iter,  "for"))
     {
         return parseIterationStatement(iter, outFS);
     }
-    else if (match(iter, "return"))
+    // return statement
+    else if (match(iter,  "return"))
     {
         return parseReturnStatement(iter, outFS);
     }
-    else if (match(iter, "printf"))
-    {
+    // printf statement
+    else if (match(iter,  "printf")) {
         return parsePrintfStatement(iter, outFS);
     }
-    else if (isDatatype(iter, outFS))
-    {
+    // get char statement
+    else if (match(iter,  "getChar")) {
+        return parseGetCharFunction(iter, outFS);
+    }
+    // declaration statement
+    else if (isDatatype(iter)) {
         return parseDeclarationStatement(iter, outFS);
     }
-    else if (matchType(iter, IDENTIFIER))
-    {
-        token *peek = iter->next();
+    // begins with identifier, either assigment or user function
+    else if (matchType(iter, IDENTIFIER)) {
+        token * peek = iter->next();
         if (match(peek, "=") || match(peek, "["))
             return parseAssignmentStatement(iter, outFS);
         else
-            return parseUserDefinedFunction(iter, outFS);
+            return parseUserDefinedFunctionStatement(iter, outFS);
     }
-    else if (iter->isEndlToken() || iter->isScope())
+    // current node is an end line token, parse past it and return based off next token
+    else
     {
         parseEndlToken(iter);
         return parseStatement(iter, outFS);
     }
-    else
-    {
-
-        if (iter)
-            iter = iter->next();
-    }
-    return nullptr;
 }
 
-node *CST::parsePrintfStatement(token *&iter, ofstream &outFS)
-{
+
+/***
+ * This function parses a printf function call
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the statement
+ */
+node* CST::parsePrintfStatement( token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
+    // ensure the statement begins with "printf"
     if (!match(iter, "printf"))
     {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected 'printf'\n";
+        errorDetected = true; outFS << "Syntax error on line " << lineNum << ": Expected 'printf'\n";
     }
 
-    node *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
-    node *child;
+    // catch printf
+    node* parent = new node(iter->content(), curScope);
+    node* _node = parent;
+    node* child = nullptr;
     iter = iter->next();
 
+    // make sure there is a parentheses after printf
     if (!match(iter, "("))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected '(' after 'printf'\n";
     }
+    // catch left parentheses
     child = new node("(", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
-    if (match(iter, "\""))
-    {
-        node *str = parseDoubleQuoteString(iter, outFS);
-        insert(parent, _node, str, getLastNode(str), origLineNum);
+    // check the type of string
+    // double quote string
+    if (match(iter, "\"")) {
+        child = parseDoubleQuoteString(iter, outFS);
     }
-    else if (match(iter, "'"))
-    {
-        node *str = parseSingleQuoteString(iter, outFS);
-        insert(parent, _node, str, getLastNode(str), origLineNum);
+    // single quote string
+    else if (match(iter, "'")) {
+        child = parseSingleQuoteString(iter, outFS);
     }
-    else
-    {
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected a quoted string after printf\n";
-        }
+    // current token is not a string
+    else {
+        errorDetected = true;
+        outFS << "Syntax error on line " << lineNum << ": Expected a quoted string after printf\n";
     }
+    insert(parent,_node, child, getLastNode(child), origLineNum);
 
+    // check if there are variable parameters after the string
     if (match(iter, ","))
     {
+        // catch initial comma
         child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
+        insert(parent, _node, child, child, origLineNum);
         iter = iter->next();
 
-        node *args = parseIdentifierAndIdentifierArrayList(iter, outFS);
-        insert(parent, _node, args, getLastNode(args), origLineNum);
+        // catch the parameters
+        node* args = parseIdentifierAndIdentifierArrayList(iter, outFS);
+        insert(parent,_node, args, getLastNode(args), origLineNum);
     }
 
+    // check for ending right parentheses
     if (!match(iter, ")"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected ')' after printf arguments\n";
     }
-    child = new node(")", curScope);
-    insert(parent, _node, child, getLastNode(child), origLineNum);
+    // catch ending parentheses
+    child = new node(")",curScope);
+    insert(parent, _node, child, child, origLineNum);
     iter = iter->next();
 
+    // ensure there is an ending semicolon
     if (!match(iter, ";"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected ';' after printf statement\n";
     }
+    // catch semicolon
     child = new node(iter->content(), curScope);
-    insert(parent, _node, child, getLastNode(child), origLineNum);
+    insert(parent, _node, child, child, origLineNum);
     iter = iter->next();
-
     return parent;
 }
 
-node *CST::parseIdentifierAndIdentifierArrayList(token *&iter, ofstream &outFS)
+
+node * CST::parseBracket( token *& iter, ofstream &outFS, node *& parent, node *& child, node *& _node,
+                          const string& variableName, const int& origLineNum)
 {
+    stNode * symbolNode = ST->retrieveNode(variableName, curScope);
+    // check if a non-array variable is being referenced with an index
+    if (symbolNode && !symbolNode->isArr())
+    {
+        errorDetected = true;
+        outFS << "Syntax error on line " << lineNum << ": Attempted to reference an index of a non-array variable\n";
+        delete parent;
+        parseUntilEndl(iter); // parse to the end line
+        parseEndlToken(iter); // parse until actual token
+        return nullptr;
+    }
+    // catch the initial bracket
+    child = new node(iter->content(), curScope);
+    insert(parent, _node, child, child, origLineNum);
+
+    iter = iter->next();
+
+    // ensure that the size variable is an integer
+    if (!matchType(iter, INTEGER) && !(matchType(iter, IDENTIFIER)))
+    {
+        errorDetected = true;
+        outFS << "Syntax error on line " << lineNum << ": Expected array index as integer\n";
+    }
+    else
+    {
+        // check if the current token is a negative integer if it is an integer
+        if (matchType(iter, INTEGER) && iter->content()[0] == '-')
+        {
+            errorDetected = true;
+            outFS << "Syntax error on line " << lineNum << ": Expected array index to be a positive integer\n";
+        }
+    }
+
+    // create a node for the size variable/integer
+    child = new node(iter->content(), curScope);
+    insert(parent, _node, child, child, origLineNum);
+    iter = iter->next();
+
+    // ensure there is a closing bracket
+    if (!match(iter, "]"))
+    {
+        errorDetected = true;
+        outFS << "Syntax error on line " << lineNum << ": Expected closing ']' for array declaration\n";
+    }
+
+    // catch closing bracket
+    child = new node(iter->content(), curScope);
+    insert(parent, _node, child, child, origLineNum);
+    iter = iter->next();
+}
+
+
+/***
+ * This function parses a list of identifiers for function calls, printf statements, etc
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the list
+ */
+node* CST::parseIdentifierAndIdentifierArrayList( token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
+    // ensure the statement begins with an identifier
     if (!matchType(iter, IDENTIFIER))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected identifier\n";
     }
 
-    node *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
-    node *child;
+    // catch initial identifier
+    node* parent = new node(iter->content(), curScope);
+    string variableName = iter->content();
+    node* _node = getLastNode(parent);
+    node* child;
     iter = iter->next();
 
-    while (iter)
+    // ensure variable exists in the scope
+    if (!ST->exists(variableName, curScope))
     {
+        errorDetected = true;
+        outFS << "Syntax error on line " << lineNum << ": unknown variable referenced\n";
+    }
 
-        if (match(iter, "["))
-        {
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
+    while (iter) {
 
-            if (!matchType(iter, INTEGER) && !match(iter, IDENTIFIER))
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected integer/variable in array brackets\n";
-            }
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
-
-            if (!match(iter, "]"))
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected closing ']'\n";
-            }
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
+        // current parameter is an array
+        if (match(iter, "[")) {
+            parseBracket(iter, outFS, parent, child, _node, variableName, origLineNum);
         }
 
+        // check if there are additional parameters
         if (match(iter, ","))
         {
+            // catch comma
             child = new node(iter->content(), curScope);
             insert(parent, _node, child, getLastNode(child), origLineNum);
             iter = iter->next();
 
+            // ensure there is an identifier after the comma
             if (!matchType(iter, IDENTIFIER))
             {
                 errorDetected = true;
                 outFS << "Syntax error on line " << lineNum << ": NO IDENTIFIER AFTER COMMA\n";
             }
 
+            // catch the identifier
             child = new node(iter->content(), curScope);
             insert(parent, _node, child, getLastNode(child), origLineNum);
             iter = iter->next();
+
         }
         else
         {
@@ -725,133 +837,131 @@ node *CST::parseIdentifierAndIdentifierArrayList(token *&iter, ofstream &outFS)
     return parent;
 }
 
-node *CST::parseIterationStatement(token *&iter, ofstream &outFS)
-{
+
+/***
+ * This function parses an iteration statement (for/while loop)
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the iteration statement
+ */
+node* CST::parseIterationStatement( token *& iter, ofstream& outFS) {
 
     int origLineNum = lineNum;
+    // ensure the pointer is not null
     if (!iter)
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Unexpected end of input in iteration statement\n";
     }
 
-    node *parent = nullptr;
-    node *_node = nullptr;
-    node *child = nullptr;
+    // initialize node pointers
+    node* parent = nullptr;
+    node* _node = parent;
+    node* child = nullptr;
 
+    // check if it is a while loop
     if (match(iter, "while"))
     {
+        // catch the while
         parent = new node("while", curScope);
         _node = parent;
         iter = iter->next();
 
+        // ensure there is a parentheses after while
         if (!match(iter, "("))
         {
             errorDetected = true;
             outFS << "Syntax error on line " << lineNum << ": Expected '(' after 'while'\n";
         }
 
+        // catch left parentheses
         child = new node("(", curScope);
         insert(parent, _node, child, getLastNode(child), origLineNum);
         iter = iter->next();
 
-        node *condition = parseBooleanExpression(iter, outFS);
-        insert(parent, _node, condition, getLastNode(condition), origLineNum);
+        // catch the condition
+        node* condition = parseBooleanExpression(iter, outFS);
+        insert(parent,_node, condition, getLastNode(condition), origLineNum);
 
-        if (!match(iter, ")") && iter && !iter->isEndlToken())
+        if (!match(iter, ")"))
         {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected ')' after while condition\n";
-        }
+            errorDetected = true; outFS << "Syntax error on line " << lineNum << ": Expected ')' after while condition\n";}
 
-        if (!iter->isEndlToken())
-        {
-            child = new node(")", curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
-        }
+        // catch ending parentheses
+        child = new node(")", curScope);
+        insert(parent, _node, child, getLastNode(child), origLineNum);
+        iter = iter->next();
+
+        // reset line flag variable and parse to next token
         origLineNum = lineNum;
         parseEndlToken(iter);
 
-        if (match(iter, "{"))
-        {
-            node *block = parseBlockStatement(iter, outFS);
-            insert(parent, _node, block, getLastNode(block), origLineNum);
-        }
-        else
-        {
-            node *stmt = parseStatement(iter, outFS);
-            insert(parent, _node, stmt, getLastNode(stmt), origLineNum);
-        }
-
+        // insert the statements in the loop and return
+        node* stmt = parseStatement(iter, outFS);
+        insert(parent,_node, stmt, getLastNode(stmt), origLineNum);
         return parent;
     }
-
-    if (match(iter, "for"))
+    // check for "for" loop
+    else if (match(iter, "for"))
     {
+        // catch for
         parent = new node("for", curScope);
         _node = parent;
         iter = iter->next();
 
+        // ensure there is a left parentheses after for
         if (!match(iter, "("))
         {
             errorDetected = true;
             outFS << "Syntax error on line " << lineNum << ": Expected '(' after 'for'\n";
         }
 
+        // catch left parentheses
         child = new node("(", curScope);
         insert(parent, _node, child, getLastNode(child), origLineNum);
         iter = iter->next();
 
-        node *init = parseInitializationExpression(iter, outFS);
+        // catch initialization expression
+        node* init = parseAssignmentStatement(iter, outFS);
         insert(parent, _node, init, getLastNode(init), origLineNum);
 
-        if (!match(iter, ";"))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected ';' after initialization\n";
-        }
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
+        // catch the condition
+        node* condition = parseBooleanExpression(iter, outFS);
+        insert(parent,_node, condition, getLastNode(condition),origLineNum);
 
-        node *condition = parseBooleanExpression(iter, outFS);
-        insert(parent, _node, condition, getLastNode(condition), origLineNum);
-
+        // ensure there is a semicolon after
         if (!match(iter, ";"))
         {
             errorDetected = true;
             outFS << "Syntax error on line " << lineNum << ": Expected second ';' in for-loop\n";
         }
+        // catch semicolon
         child = new node(";", curScope);
         insert(parent, _node, child, getLastNode(child), origLineNum);
         iter = iter->next();
 
-        node *update = parseIncrementStatement(iter, outFS);
-        insert(parent, _node, update, getLastNode(update), origLineNum);
+        // catch increment statement
+        node* update = parseIncrementStatement(iter, outFS);
+        insert(parent,_node, update, getLastNode(update),origLineNum);
 
+        // check for ending parentheses
         if (!match(iter, ")"))
         {
             errorDetected = true;
             outFS << "Syntax error on line " << lineNum << ": Expected ')' after for-loop header\n";
         }
+        // catch ending parentheses
         child = new node(")", curScope);
         insert(parent, _node, child, getLastNode(child), origLineNum);
         iter = iter->next();
 
-        if (match(iter, "{"))
-        {
-            node *block = parseBlockStatement(iter, outFS);
-            insert(parent, _node, block, getLastNode(block), origLineNum);
-        }
-        else
-        {
-            node *stmt = parseStatement(iter, outFS);
-            insert(parent, _node, stmt, getLastNode(stmt), origLineNum);
-        }
-
+        // consume and insert statements within the bounds of the for loop
+        node* stmt = parseStatement(iter, outFS);
+        insert(parent,_node, stmt, getLastNode(stmt), origLineNum);
         return parent;
     }
+    // invalid iteration statement
     else
     {
         errorDetected = true;
@@ -860,103 +970,55 @@ node *CST::parseIterationStatement(token *&iter, ofstream &outFS)
     return nullptr;
 }
 
-node *CST::parseInitializationExpression(token *&iter, ofstream &outFS)
-{
 
-    int origLineNum = lineNum;
-    parseEndlToken(iter);
-
-    if (!matchType(iter, IDENTIFIER))
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected identifier in initialization expression\n";
-    }
-
-    node *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
-    iter = iter->next();
-
-    if (!match(iter, "="))
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected '=' in initialization expression\n";
-    }
-
-    auto *child = new node(iter->content(), curScope);
-    insert(parent, _node, child, getLastNode(child), origLineNum);
-    iter = iter->next();
-
-    if (match(iter, "\""))
-    {
-        child = parseDoubleQuoteString(iter, outFS);
-    }
-
-    else if (match(iter, "'"))
-    {
-        child = parseSingleQuoteString(iter, outFS);
-    }
-
-    else
-    {
-        child = parseExpression(iter, outFS);
-    }
-
-    insert(parent, _node, child, getLastNode(child), origLineNum);
-    return parent;
-}
-
-node *CST::parseReturnStatement(token *&iter, ofstream &outFS)
+/***
+ * This function parses a return statement
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the return statement
+ */
+node* CST::parseReturnStatement( token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
-    parseEndlToken(iter);
+    // ensure the statement begins with return
     if (!match(iter, "return"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected 'return'\n";
     }
-
-    node *parent = new node(iter->content(), curScope);
-    node *_node = parent, *child;
+    // catch return
+    node* parent = new node(iter->content(), curScope);
+    node* _node = parent, *child;
     iter = iter->next();
 
-    if (!iter)
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Unexpected end of input after 'return'\n";
-    }
-
-    if (match(iter, "'"))
-    {
-        child = parseSingleQuoteString(iter, outFS);
-    }
-
-    else if (match(iter, "\""))
-    {
-        child = parseDoubleQuoteString(iter, outFS);
-    }
-
-    else
-    {
-        child = parseExpression(iter, outFS);
-    }
+    // parse expression
+    child = parseExpression(iter, outFS);
     insert(parent, _node, child, getLastNode(child), origLineNum);
 
+    // ensure there is a semicolon after the expression
     if (!match(iter, ";"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected ';' at end of return statement\n";
     }
 
+    // catch the semicolon
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
-
-    parseEndlToken(iter);
-
     return parent;
 }
 
-node *CST::parseDeclarationStatement(token *&iter, ofstream &outFS)
+
+/***
+ * This function parses a declaration statement
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the declaration statement
+ */
+node * CST::parseDeclarationStatement(token *& iter, ofstream& outFS)
 {
     // symbol table parameters
     string idName, idType = "datatype", datatype;
@@ -964,67 +1026,41 @@ node *CST::parseDeclarationStatement(token *&iter, ofstream &outFS)
     int arrSize = 0;
 
     int origLineNum = lineNum;
-    if (!isDatatype(iter, outFS))
+    // ensure the statement begins with a datatype
+    if (!isDatatype(iter))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected datatype\n";
     }
 
+    // initialize node pointers and catch datatype
     auto *parent = new node(iter->content(), curScope);
     datatype = iter->content();
     node *_node = parent, *child = nullptr;
     iter = iter->next();
 
-    while (true)
+
+    while (!match(iter, ";"))
     {
-        if (!matchType(iter, IDENTIFIER))
-        {
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected identifier in declaration\n";
-            }
+        if (!matchType(iter, IDENTIFIER)) {
+            { errorDetected = true; outFS << "Syntax error on line " << lineNum << ": Expected identifier in declaration\n";}
         }
 
         idName = iter->content();
         node *idNode = new node(iter->content(), curScope);
-        insert(parent, _node, idNode, getLastNode(idNode), origLineNum);
+        insert(parent,_node, idNode, getLastNode(idNode),origLineNum);
         iter = iter->next();
 
-        if (match(iter, "["))
-        {
+        // check if variable is an array
+        if (match(iter, "[")) {
 
             isArr = true;
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
-
-            if (!matchType(iter, INTEGER) ||
-                ((matchType(iter, INTEGER) && iter->content()[0] == '-')))
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected array size as positive integer\n";
-            }
-
-            arrSize = stoi(iter->content());
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
-
-            if (!match(iter, "]"))
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected closing ']' for array declaration\n";
-            }
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
+            parseBracket(iter, outFS, parent, child, _node, idName, origLineNum);
         }
 
-        auto *variable = new stNode(idName, idType, datatype, isArr, arrSize, curScope);
+        auto * variable = new stNode(idName, idType, datatype, isArr, arrSize, curScope);
         int foundScope;
+        // ensure the variable name is not already used
         if (ST->inUse(variable, foundScope))
         {
             outFS << "Error on line " << lineNum << ": variable \"" << idName << "\" is already defined ";
@@ -1035,161 +1071,181 @@ node *CST::parseDeclarationStatement(token *&iter, ofstream &outFS)
             errorDetected = true;
             delete variable;
         }
+        // variable name is also not a reserve word
         else if (checkReserveWord(variable->idName(), VAR_RESERVED_WORDS))
         {
-            outFS << "Syntax Error on line " << lineNum << ": the name " << idName << " cannot be used as it\n";
+            outFS << "Syntax Error on line " << lineNum << ": the name " << idName << " cannot be used as it";
             outFS << " is a reserve word\n";
             errorDetected = true;
             delete variable;
         }
+        // insert it to the symbol table
         else
             ST->insert(variable);
 
+        // check if there are additional declarations
         if (match(iter, ","))
         {
+            // catch comma
             child = new node(iter->content(), curScope);
             insert(parent, _node, child, getLastNode(child), origLineNum);
             iter = iter->next();
 
+            // reset symbol table parameters
             isArr = false;
             arrSize = 0;
-            continue;
         }
 
-        break;
+
     }
+    // ensure there is a semicolon after the declaration(s)
     if (!match(iter, ";"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected semicolon to end declaration statement\n";
     }
-
+    // catch semicolon
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
-
     return parent;
 }
 
-node *CST::parseSelectionStatement(token *&iter, ofstream &outFS)
-{
 
+/***
+ * This function parses a selection (if) statement
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the selection statement
+ */
+node* CST::parseSelectionStatement( token *& iter, ofstream& outFS)
+{
     int origLineNum = lineNum;
+    // ensure statment begins with if
     if (!match(iter, "if"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected 'if' at start of selection statement\n";
     }
 
-    auto *parent = new node(iter->content(), curScope);
-    auto *_node = parent;
-    node *child = nullptr;
+    // catch if and initialize other node pointers
+    auto* parent = new node(iter->content(), curScope);
+    auto* _node = parent;
+    node * child = nullptr;
     iter = iter->next();
 
-    node *condition = parseBooleanExpression(iter, outFS);
-    insert(parent, _node, condition, getLastNode(condition), origLineNum);
+    // catch condition
+    node* condition = parseBooleanExpression(iter, outFS);
+    insert(parent,_node, condition, getLastNode(condition),origLineNum);
+    origLineNum = lineNum;
+    parseEndlToken(iter); // parse to next actual token
+
+    // catch all the statements within the if statement and insert them
+    node* stmt = parseStatement(iter, outFS);
+    insert(parent,_node, stmt, getLastNode(stmt), origLineNum);
+
+    // update line flag variable and parse to next token
     origLineNum = lineNum;
     parseEndlToken(iter);
 
-    if (match(iter, "{"))
-    {
-        node *block = parseBlockStatement(iter, outFS);
-        insert(parent, _node, block, getLastNode(block), origLineNum);
-    }
-    else
-    {
-        node *stmt = parseStatement(iter, outFS);
-        insert(parent, _node, stmt, getLastNode(stmt), origLineNum);
-    }
+    // check if there is an else
+    if (match(iter, "else")) {
 
-    origLineNum = lineNum;
-    parseEndlToken(iter);
-
-    if (match(iter, "else"))
-    {
-
+        // catch else
         child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
+        insert(parent, _node, child, child, origLineNum);
         iter = iter->next();
 
+        // reset flag
         origLineNum = lineNum;
         parseEndlToken(iter);
 
-        if (match(iter, "{"))
-        {
-            node *block = parseBlockStatement(iter, outFS);
-            insert(parent, _node, block, getLastNode(block), origLineNum);
-        }
-        else
-        {
-            node *stmt = parseStatement(iter, outFS);
-            insert(parent, _node, stmt, getLastNode(stmt), origLineNum);
-        }
+        // catch all the statements within the else statement and insert them
+        stmt = parseStatement(iter, outFS);
+        insert(parent,_node, stmt, getLastNode(stmt), origLineNum);
     }
 
     return parent;
 }
 
-node *CST::parseProcedureDeclaration(token *&iter, ofstream &outFS)
-{
 
+/***
+ * This function parses a procedure
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of procedure structure
+ */
+node * CST::parseProcedureDeclaration(token *& iter, ofstream& outFS)
+{
+    // symbol table parameters
     string idName, idType = "procedure", datatype = "NOT APPLICABLE";
     prevScope++;
     curScope = prevScope;
 
     int origLineNum = lineNum;
+    // ensure initial statement begins with procedure
     if (!match(iter, "procedure"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED PROCEDURE\n";
     }
 
-    auto *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
+    // catch procedure
+    auto * parent = new node(iter->content(), curScope);
+    node * _node = getLastNode(parent);
     iter = iter->next();
 
+    // ensure the name of the procedure is an identifier
     if (!matchType(iter, IDENTIFIER))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED IDENTIFIER\n";
     }
 
+    // set current function and id name to the name of the procedure
     curFunction = idName = iter->content();
 
+    // check if name is a reserve word
     if (checkReserveWord(idName, FUNCTION_SPECIFIC_RESERVES))
     {
         outFS << "Syntax error on line " << lineNum << ": " << idName << " can not be used as the name of a procedure\n";
         errorDetected = true;
     }
 
-    auto *child = new node(iter->content(), curScope);
+    // catch the function name
+    auto * child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     iter = iter->next();
 
-    auto *procedure = new stNode(idName, idType, datatype, curScope);
+    // create a symbol table node and insert it into the symbol table
+    auto * procedure = new stNode(idName, idType, datatype, curScope);
     ST->insert(procedure);
 
+    // ensure the procedure has a left parentheses
     if (!match(iter, "("))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED (\n";
     }
+    // catch left parentheses
     child = new node("(", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     iter = iter->next();
 
-    auto *paramList = parseParameterList(iter, outFS);
-    if (!paramList && !match(iter, "void"))
+    // catch parameter list (if it exists)
+    auto * paramList = parseParameterList(iter, outFS);
+    // if parameter list is null, ensure it has void instead
+    if (!paramList && !match(iter, "void") )
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED void\n";
     }
 
-    symbolTable *PL = nullptr;
-    if (paramList)
-    {
+    symbolTable * PL = nullptr;
+    // if there is a parameter list, insert it into the symbol table
+    if (paramList) {
         child = paramList;
         PL = createPL(paramList, outFS);
         ST->insertST(PL);
@@ -1197,220 +1253,258 @@ node *CST::parseProcedureDeclaration(token *&iter, ofstream &outFS)
     else
         child = new node(iter->content(), curScope);
 
+    // insert parameter list/void
     insert(parent, _node, child, getLastNode(child), origLineNum);
     if (!paramList)
         iter = iter->next();
 
+    // ensure there is a closing parentheses
     if (!match(iter, ")"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED )\n";
     }
 
+    // catch ending parentheses
     child = new node(")", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
+    // reset line flag
     origLineNum = lineNum;
     parseEndlToken(iter);
+
+    // insert the block statement and return
     child = parseBlockStatement(iter, outFS);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     return parent;
+
 }
 
-node *CST::parseGetCharFunction(token *&iter, ofstream &outFS)
+
+/***
+ * This function parses a getChar statement
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the getChar statement
+ */
+node* CST::parseGetCharFunction( token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
+    // ensure the statement begins with getChar
     if (!match(iter, "getchar"))
-    {
-        errorDetected = true;
+    { 
+        errorDetected = true; 
         outFS << "Syntax error on line " << lineNum << ": Expected 'getchar'\n";
     }
 
-    node *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
-    node *child;
+    // catch getChar and initialize other node pointers
+    node* parent = new node(iter->content(), curScope);
+    node* _node = getLastNode(parent);
+    node* child;
     iter = iter->next();
 
+    // check for left parentheses
     if (!match(iter, "("))
     {
-        errorDetected = true;
+        errorDetected = true; 
         outFS << "Syntax error on line " << lineNum << ": Expected '(' after 'getchar'\n";
     }
+
+    // catch left parentheses
     child = new node("(", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
-    if (!matchType(iter, IDENTIFIER))
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected identifier inside 'getchar(...)'\n";
-    }
-    child = new node(iter->content(), curScope);
-    insert(parent, _node, child, getLastNode(child), origLineNum);
-    iter = iter->next();
-
+    // check for ending parentheses
     if (!match(iter, ")"))
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected ')' after 'getchar(...)'\n";
+    { 
+        errorDetected = true; 
+        outFS << "Syntax error on line " << lineNum << ": Expected ')' after 'getchar()'\n";
     }
 
+    // catch ending parentheses
     child = new node(")", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
-
     return parent;
 }
 
-bool CST::isBooleanOperator(token *&iter)
-{
 
-    return (iter && (iter->content() == "<=" || iter->content() == ">=" ||
-                     iter->content() == "==" || iter->content() == "<" || iter->content() == ">" ||
-                     iter->content() == "&&" || iter->content() == "!=" || iter->content() == "||"));
+/***
+ * This checks if a given node is a boolean operator
+ * @param iter current node in the token list
+ * @return true if iter contains a boolean operator, false if not
+ */
+bool CST::isBooleanOperator(token *&iter) {
+
+    return (iter && (iter->content() == "<=" || iter->content() == ">=" || iter->content() == "!" ||
+                    iter->content() == "==" || iter->content() == "<" || iter->content()== ">" ||
+                    iter->content() == "&&" || iter->content() == "!=" || iter->content()== "||"));
+
 }
 
-node *CST::parseParameterList(token *&iter, ofstream &outFS)
+
+/***
+ * This parses a parameter list
+ * 
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the parameter list
+ */
+node * CST::parseParameterList(token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
-    if (!isDatatype(iter, outFS))
-    {
+    // ensure the list begins with a parameter
+    if (!isDatatype(iter)) {
         return nullptr;
     }
-
-    auto *parent = new node(iter->content(), curScope);
-    auto *_node = parent;
-
+    
+    // catch initial datatype
+    auto * parent = new node(iter->content(), curScope);
+    auto * _node = parent;
     iter = iter->next();
 
+    // ensure current token is an identifier
     if (!matchType(iter, IDENTIFIER))
-    {
+    { 
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED IDENTIFIER\n";
     }
 
-    auto *child = new node(iter->content(), curScope);
+    // catch identifier
+    auto * child = new node(iter->content(), curScope);
+    string variableName = iter->content();
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
-    if (match(iter, "["))
-    {
-
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
-
-        if (!matchType(iter, INTEGER))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected array size as integer\n";
-        }
-
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
-
-        if (!match(iter, "]"))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected closing ']' for array declaration\n";
-        }
-
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
+    // check if variable is an array
+    if (match(iter, "[")) {
+        parseBracket(iter, outFS, parent, child, _node, variableName, origLineNum);
     }
 
+    // check for additional parameters and insert them recursively
     if (match(iter, ","))
     {
         child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
+        insert(parent, _node, child, child, origLineNum);
         iter = iter->next();
         child = parseParameterList(iter, outFS);
         insert(parent, _node, child, getLastNode(child), origLineNum);
+
+
     }
     return parent;
+
 }
 
-bool CST::isDatatype(token *&iter, ofstream &outFS)
+
+/***
+ * This checks if a given node holds a datatype
+ * @param iter current node in token list
+ * @return if the node holds a datatype, false if not
+ */
+bool CST::isDatatype(token *& iter)
 {
-    if (!match(iter, "char") && !match(iter, "bool") && !match(iter, "int"))
+    if (!match(iter, "char") && !match(iter, "bool")
+        && !match(iter, "int"))
         return false;
     return true;
 }
 
-node *CST::parseBooleanExpression(token *&iter, ofstream &outFS)
-{
 
-    node *parent = nullptr;
-    node *_node = nullptr, *child = nullptr;
+/***
+ * This parses a boolean expression
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the expression
+ */
+node* CST::parseBooleanExpression( token *& iter, ofstream& outFS) {
+
+    // initialize pointers and line flag variable
+    node* parent = nullptr;
+    node * _node = parent, * child = nullptr;
     int origLineNum = lineNum;
 
-    if (match(iter, "("))
+    // check cases for non-boolean operators
+    if (!isBooleanOperator(iter))
     {
+        // expression is contained within parentheses
+        if (match(iter, "(")) {
 
-        parent = new node("(", curScope);
-        _node = parent;
-        iter = iter->next();
+            // catch initial parentheses
+            parent = new node("(", curScope);
+            _node = parent;
+            iter = iter->next();
 
-        child = parseBooleanExpression(iter, outFS);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
+            // catch expression
+            child = parseBooleanExpression(iter, outFS);
+            insert(parent, _node, child, getLastNode(child), origLineNum);
 
-        if (iter && !iter->isEndlToken() && !match(iter, ";") && !match(iter, ")"))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": MISSING CLOSING PARENTHESES\n";
-        }
+            // ensure there is an ending parentheses
+            if (!match(iter, ")"))
+            {
+                errorDetected = true;
+                outFS << "Syntax error on line " << lineNum << ": MISSING CLOSING PARENTHESES\n";
+            }
 
-        if (!match(iter, ";"))
-        {
+            // catch ending parentheses
             child = new node(")", curScope);
             insert(parent, _node, child, getLastNode(child), origLineNum);
             iter = iter->next();
         }
-    }
-    else if (match(iter, "TRUE") || match(iter, "FALSE"))
-    {
-        parent = new node(iter->content(), curScope);
-        iter = iter->next();
-    }
-    else if (match(iter, "'"))
-    {
-        parent = parseSingleQuoteString(iter, outFS);
-    }
-    else if (match(iter, "\""))
-    {
-        parent = parseDoubleQuoteString(iter, outFS);
-    }
-    else
-    {
-        parent = parseNumericalExpression(iter, outFS);
-    }
-    _node = getLastNode(parent);
+        // check if condition is entirely a false or true statement
+        else if (match(iter, "TRUE") || match(iter, "FALSE"))
+        {
+            parent = new node(iter->content(), curScope);
+            iter = iter->next();
+        }
+        // single quote string
+        else if (match(iter, "'")) {
+            parent = parseSingleQuoteString(iter, outFS);
 
+        }
+        // double quote string
+        else if (match(iter, "\"")) {
+            parent = parseDoubleQuoteString(iter, outFS);
+        }
+        // numerical expression
+        else {
+            parent = parseNumericalExpression(iter, outFS);
+        }
+         _node = getLastNode(parent);
+    }
+
+    // iterate through the rest of the expression
     while (isBooleanOperator(iter))
     {
-
-        node *op = new node(iter->content(), curScope);
-        insert(parent, _node, op, getLastNode(op), origLineNum);
+        // catch the operator
+        node* op = new node(iter->content(), curScope);
+        insert(parent,_node, op, getLastNode(op),origLineNum);
         iter = iter->next();
 
-        node *right = parseBooleanExpression(iter, outFS);
-        insert(parent, _node, right, getLastNode(right), origLineNum);
-
-        //        token * peek = iter->next();
-        //        if (isBooleanOperator(peek))
-        //            iter = iter->next();
+        // catch the rest of the expression/next term
+        node* right = parseBooleanExpression(iter, outFS);
+        insert(parent,_node, right, getLastNode(right),origLineNum);
     }
 
     return parent;
 }
 
-symbolTable *CST::createPL(node *iter, ofstream &outFS)
+
+/***
+ * This creates a parameters list for the symbol table
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return the created symbol table
+ */
+symbolTable * CST::createPL(node * iter, ofstream& outFS)
 {
-    auto *PL = new symbolTable(curFunction);
+    // initialize base parameters
+    auto * PL = new symbolTable(curFunction);
     string idName, idType = "datatype", datatype;
     bool isArr = false;
     int size = 0;
@@ -1439,13 +1533,16 @@ symbolTable *CST::createPL(node *iter, ofstream &outFS)
             }
             // iterate past the end bracket
             iter = iter->sibling();
+
         }
         // check if not end of list
         if (iter && iter->content() == ",")
             iter = iter->sibling();
 
-        auto *variable = new stNode(idName, idType, datatype, isArr, size, curScope);
+        // create a new stNode with populated parameters
+        auto * variable = new stNode(idName, idType, datatype, isArr, size, curScope);
         int foundScope;
+        // check if variable is in use
         if (ST->inUse(variable, foundScope))
         {
             outFS << "Error on line " << lineNum << ": variable \"" << idName << "\" is already defined ";
@@ -1456,6 +1553,7 @@ symbolTable *CST::createPL(node *iter, ofstream &outFS)
             errorDetected = true;
             delete variable;
         }
+        // check if variable is a reserve word
         else if (checkReserveWord(variable->idName(), VAR_RESERVED_WORDS))
         {
             outFS << "Syntax Error on line " << lineNum << ": the name " << idName << " cannot be used as it\n";
@@ -1463,19 +1561,30 @@ symbolTable *CST::createPL(node *iter, ofstream &outFS)
             errorDetected = true;
             delete variable;
         }
+        // insert to the parameter list
         else
             PL->insert(variable);
         outFS.flush();
 
+        // reset the parameters (for the symbol table)
         datatype.clear();
         idName.clear();
         size = 0;
         isArr = false;
     }
     return PL;
+
 }
 
-node *CST::parseFunction(token *&iter, ofstream &outFS)
+
+/***
+ * This parses a function
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the function
+ */
+node * CST::parseFunction(token *& iter, ofstream& outFS)
 {
     // symbol table parameters
     string idName, idType = "function", datatype;
@@ -1483,78 +1592,81 @@ node *CST::parseFunction(token *&iter, ofstream &outFS)
     curScope = prevScope;
 
     int origLineNum = lineNum;
+    // ensure statement begins with function
     if (!match(iter, "function"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED FUNCTION\n";
     }
 
-    auto *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
-
+    // catch function
+    auto * parent = new node(iter->content(), curScope);
+    node * _node = getLastNode(parent);
     iter = iter->next();
 
-    if (!isDatatype(iter, outFS))
+    // check return type
+    if (!isDatatype(iter))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED DATATYPE\n";
     }
 
+    // catch return type
     datatype = iter->content();
-    auto *child = new node(iter->content(), curScope);
+    auto * child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     iter = iter->next();
 
+    // ensure function name is an identifier
     if (!matchType(iter, IDENTIFIER))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED IDENTIFIER\n";
     }
 
+    // set current function and symbol parameter
     curFunction = idName = iter->content();
 
+    // check if name is a reserve word
     if (checkReserveWord(idName, FUNCTION_SPECIFIC_RESERVES))
     {
         outFS << "Syntax error on line " << lineNum << ": " << idName << " can not be used as the name of a function\n";
         errorDetected = true;
     }
 
+    // catch function name
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
 
-    auto *function = new stNode(idName, idType, datatype, curScope);
+    // create a new symbol table node and insert it
+    auto * function = new stNode(idName, idType, datatype, curScope);
     ST->insert(function);
+    iter = iter->next();
 
-    if (iter)
-        iter = iter->next();
-    else
-    {
-        iter = parseUntilEndL(iter);
-        deleteNodes(parent);
-        return nullptr;
-    }
-
+    // ensure there is a left parentheses after name
     if (!match(iter, "("))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED (\n";
     }
+
+    // catch the parentheses
     child = new node("(", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     iter = iter->next();
 
-    auto *paramList = parseParameterList(iter, outFS);
-    if (!paramList && !match(iter, "void"))
+    // retrieve the parameter list (if it exists)
+    auto * paramList = parseParameterList(iter, outFS);
+    // if no expected parameters, ensure it has void instead
+    if (!paramList && !match(iter, "void") )
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED void\n";
     }
 
-    symbolTable *PL = nullptr;
-    if (paramList)
-    {
+    // populate a new symbol table with the parameter list and insert it
+    symbolTable * PL = nullptr;
+    if (paramList) {
         child = paramList;
         PL = createPL(child, outFS);
         ST->insertST(PL);
@@ -1564,40 +1676,38 @@ node *CST::parseFunction(token *&iter, ofstream &outFS)
 
     insert(parent, _node, child, getLastNode(child), origLineNum);
 
+    // ensure there is a closing parentheses
     if (!match(iter, ")"))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": EXPECTED )\n";
     }
+
+    // catch end parentheses
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
+    // parse until next actual token
     parseEndlToken(iter);
 
+    // consume the function's statements and insert them into the structure
     child = parseBlockStatement(iter, outFS);
     insert(parent, _node, child, getLastNode(child), origLineNum);
-
     return parent;
+
 }
 
-node *CST::getLastSibling(node *_node)
-{
 
-    node *iter = _node;
-    while (iter && iter->sibling())
-        iter = iter->sibling();
-    return iter;
-}
-
-bool CST::match(token *&iter, const string &expected)
+/***
+ * This checks if a given token has a set string
+ * @param iter given token
+ * @param expected the expected string
+ * @return true if the token has the string, false if the token is null
+ * or has a different string
+ */
+bool CST::match(token *& iter, const string& expected)
 {
-    if (!iter)
-        return false;
-    if (iter->isScope())
-    {
-        parseEndlToken(iter);
-    }
     if (iter && iter->content() == expected)
     {
         return true;
@@ -1605,98 +1715,79 @@ bool CST::match(token *&iter, const string &expected)
     return false;
 }
 
-node *CST::parseFactor(token *&iter, ofstream &outFS)
+
+/***
+ * This parses a factor in an expression
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the factor
+ */
+node* CST::parseFactor( token *& iter, ofstream& outFS)
 {
+    // initialize node pointers
     int origLineNum = lineNum;
-    if (!iter)
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Unexpected end of input in factor\n";
-    }
+    node* parent = nullptr, *child = nullptr, *_node = nullptr;
+    token * peek = iter->next();
 
-    node *parent = nullptr, *child = nullptr, *_node = nullptr;
+    // check if the factor is a parenthesized expression
+    if (match(iter, "(")) {
 
-    if (match(iter, "("))
-    {
-
+        // catch opening parentheses
         parent = new node("(", curScope);
         _node = parent;
         iter = iter->next();
 
+        // catch expression
         child = parseNumericalExpression(iter, outFS);
         insert(parent, _node, child, getLastNode(child), origLineNum);
 
+        // ensure there is an end parentheses
         if (!match(iter, ")"))
         {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected ')'\n";
+            errorDetected = true; outFS << "Syntax error on line " << lineNum << ": Expected ')'\n";
         }
 
+        // catch closing parentheses
         child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
+        insert(parent, _node, child, child, origLineNum);
         iter = iter->next();
     }
+    // check if the token is an identifier or an integer
     else if (matchType(iter, INTEGER) || matchType(iter, IDENTIFIER))
     {
-        parent = new node(iter->content(), curScope);
-        _node = parent;
-        iter = iter->next();
-
-        if (match(iter, "["))
+        // if current token is an identifier and next is a parentheses (user function)
+        if (matchType(iter, IDENTIFIER) && peek && match(peek, "("))
         {
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
+            return parseUserDefinedFunction(iter, outFS);
 
-            if (!matchType(iter, INTEGER) && !matchType(iter, IDENTIFIER))
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected array size as integer\n";
-            }
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
-
-            if (!match(iter, "]"))
-            {
-                errorDetected = true;
-                outFS << "Syntax error on line " << lineNum << ": Expected closing ']' for array declaration\n";
-            }
-
-            child = new node(iter->content(), curScope);
-            insert(parent, _node, child, getLastNode(child), origLineNum);
-            iter = iter->next();
         }
+        // not a user function
+        else {
+            // catch identifier
+            string variableName = iter->content(), prevType = iter->_type();
+            parent = new node(iter->content(), curScope);
+            _node = parent;
+            iter = iter->next();
+
+            // if identifier is an array
+            if (prevType == IDENTIFIER && match(iter, "[")) {
+                parseBracket(iter, outFS, parent, child, _node, variableName, origLineNum);
+            }
+        }
+
     }
+    // single quote string
     else if (match(iter, "'"))
     {
         parent = parseSingleQuoteString(iter, outFS);
     }
+    // double quote string
     else if (match(iter, "\""))
     {
         parent = parseDoubleQuoteString(iter, outFS);
     }
-    else if (match(iter, "!"))
-    {
-        parent = new node("!", curScope);
-        iter = iter->next();
-        if (!matchType(iter, IDENTIFIER))
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": EXPECTED IDENTIFIER AFTER !\n";
-        }
-
-        token *peek = iter->next();
-        if (match(peek, "("))
-            parent->sibling(parseUserDefinedFunction(iter, outFS));
-        else
-        {
-            child = new node(iter->content(), curScope);
-            parent->sibling(child);
-            iter = iter->next();
-        }
-    }
+    // invalid factor
     else
     {
         errorDetected = true;
@@ -1706,148 +1797,217 @@ node *CST::parseFactor(token *&iter, ofstream &outFS)
     return parent;
 }
 
-node *CST::parseUserDefinedFunction(token *&iter, ofstream &outFS)
+
+/***
+ * This parses a user function
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the user function call
+ */
+node* CST::parseUserDefinedFunction( token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
+    // ensure beginning term is an identifier
     if (!matchType(iter, IDENTIFIER))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected function name\n";
     }
 
-    node *parent = new node(iter->content(), curScope);
-    node *_node = getLastNode(parent);
-    node *child;
+    // catch function name
+    node* parent = new node(iter->content(), curScope);
+    node* _node = parent;
+    node* child = nullptr;
     iter = iter->next();
 
+    // ensure there is a left parentheses immediately after
     if (!match(iter, "("))
     {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected '(' after function name\n";
     }
+
+    // catch parentheses
     child = new node("(", curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
 
+    // if term is an identifier
     if (matchType(iter, IDENTIFIER))
     {
 
-        token *lookahead = iter->next();
-        if (lookahead && (lookahead->content() == "," || lookahead->content() == "["))
+        token* lookahead = iter->next();
+        // if the current token is an array, parse past the brackets to check the type
+        // of expression is after it
+        if (match(lookahead, "["))
         {
-            node *args = parseIdentifierAndIdentifierArrayList(iter, outFS);
-            insert(parent, _node, args, getLastNode(args), origLineNum);
+            // iterate until you get to the closing bracket
+            while (lookahead && !match(lookahead, "]"))
+                lookahead = lookahead->next();
+            // ensure you do not accidentally reference a null pointer (error is caught in later functions)
+            // and iterate past the end bracket
+            if (match(lookahead, "]"))
+                lookahead = lookahead->next();
         }
+        // check for additional parameters
+        if (match(lookahead, ","))
+        {
+            node* args = parseIdentifierAndIdentifierArrayList(iter, outFS);
+            insert(parent,_node, args, getLastNode(args),origLineNum);
+        }
+        // must be an expression
         else
         {
-
-            node *expr = parseExpression(iter, outFS);
-            insert(parent, _node, expr, getLastNode(expr), origLineNum);
+            node* expr = parseExpression(iter, outFS);
+            insert(parent,_node, expr, getLastNode(expr),origLineNum);
         }
     }
+    // parse the expression inside the function call
     else
     {
 
-        node *expr = parseExpression(iter, outFS);
-        insert(parent, _node, expr, getLastNode(expr), origLineNum);
+        node* expr = parseExpression(iter, outFS);
+        insert(parent,_node, expr, getLastNode(expr),origLineNum);
     }
 
+    // ensure there is an ending parentheses
     if (!match(iter, ")"))
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected ')' after function arguments\n";
-    }
+    { errorDetected = true; outFS << "Syntax error on line " << lineNum << ": Expected ')' after function arguments\n";}
 
+    // catch the ending parentheses
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, getLastNode(child), origLineNum);
     iter = iter->next();
-
-    if (match(iter, ";"))
-    {
-        child = new node(iter->content(), curScope);
-        insert(parent, _node, child, getLastNode(child), origLineNum);
-        iter = iter->next();
-    }
-    else if (!match(iter, ")"))
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected SEMICOLON/PARENTHESES AFTER USER FUNCTION\n";
-    }
-
     return parent;
 }
 
-node *CST::parseExpression(token *&iter, ofstream &outFS)
+
+/***
+ * This is use d if a user function call is an entire statement itself
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the user function call
+ */
+node* CST::parseUserDefinedFunctionStatement( token *& iter, ofstream& outFS)
 {
+    int origLineNum = lineNum;
+    // call helper
+    auto *parent = parseUserDefinedFunction(iter, outFS), *_node = parent;
+    // ensure there is an ending semicolon
+    if (!match(iter, ";")) {
+        errorDetected = true;
+        outFS << "Syntax error on line " << lineNum << ": Expected semicolon after user function\n";
+    }
+    // catch ending semicolon
+    auto *child = new node(",", curScope);
+    insert(parent, _node, child, child, origLineNum);
+    iter = iter->next(); // parse past semicolon
+    return parent;
+}
 
-    token *lookahead = iter;
 
-    while (lookahead && !lookahead->isEndlToken() && !lookahead->isScope())
+/***
+ * This function parses an expression
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the expression
+ */
+node* CST::parseExpression( token *& iter, ofstream& outFS) {
+
+    token* peek = iter;
+
+    // check if expression is a boolean expression
+    while (peek && !peek->isEndlToken())
     {
-        std::string val = lookahead->content();
-        if (val == "==" || val == "!=" || val == "<" || val == "<=" ||
-            val == ">" || val == ">=" || val == "&&" || val == "||" || val == "!")
-        {
+        // check if current peek token is a boolean operator
+        if (isBooleanOperator(peek)) {
             return parseBooleanExpression(iter, outFS);
         }
 
-        if (val == ";" || val == ")" || val == ",")
+        if (peek->content() == ";" || peek->content()  == ")" || peek->content()  == ",")
             break;
 
-        lookahead = lookahead->next();
+        peek = peek->next();
     }
-
+    // numerical expression
     return parseNumericalExpression(iter, outFS);
 }
 
-node *CST::parseNumericalExpression(token *&iter, ofstream &outFS)
+
+/***
+ * This function parses a numerical expression
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the expression
+ */
+node* CST::parseNumericalExpression( token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
-    node *parent = parseTerm(iter, outFS);
-    node *_node = getLastNode(parent);
+    // parse the initial term
+    node* parent = parseTerm(iter, outFS);
+    node* _node = getLastNode(parent);
 
+    // while there are addition/subtractions
     while (match(iter, "+") || match(iter, "-"))
     {
-
-        node *op = new node(iter->content(), curScope);
-        insert(parent, _node, op, getLastNode(op), origLineNum);
+        // catch operator
+        node* op = new node(iter->content(), curScope);
+        insert(parent,_node, op, getLastNode(op), origLineNum);
         iter = iter->next();
 
-        node *right = parseTerm(iter, outFS);
-        insert(parent, _node, right, getLastNode(right), origLineNum);
+        // parse next term
+        node* right = parseTerm(iter, outFS);
+        insert(parent,_node, right, getLastNode(right), origLineNum);
     }
 
     return parent;
 }
 
-node *CST::parseTerm(token *&iter, ofstream &outFS)
+
+/***
+ * This parses a term for expressions
+ *
+ * @param iter current node in the token list
+ * @param outFS file stream for errors
+ * @return root node of the expression
+ */
+node* CST::parseTerm( token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
-    node *parent = parseFactor(iter, outFS);
-    node *_node = getLastNode(parent);
+    // catch the initial factor
+    node* parent = parseFactor(iter, outFS);
+    node * _node = getLastNode(parent);
 
+    // while there are high precedence operators
     while (match(iter, "*") || match(iter, "/") || match(iter, "%"))
     {
-
-        node *op = new node(iter->content(), curScope);
-        insert(parent, _node, op, getLastNode(op), origLineNum);
+        // catch operator
+        node* op = new node(iter->content(), curScope);
+        insert(parent,_node, op, getLastNode(op), origLineNum);
         iter = iter->next();
 
-        node *right = parseFactor(iter, outFS);
-        insert(parent, _node, right, getLastNode(right), origLineNum);
+        // catch next factor
+        node* right = parseFactor(iter, outFS);
+        insert(parent,_node, right, getLastNode(right), origLineNum);
     }
 
     return parent;
 }
 
-bool CST::matchType(token *&iter, const string &expected)
+
+/***
+ * This checks if a given token is a set type
+ *
+ * @param iter given token
+ * @param expected type of token to be compared
+ * @return true if the token is that type, false if not
+ */
+bool CST::matchType(token *& iter, const string& expected)
 {
-    if (!iter)
-        return false;
-    if (iter->isScope())
-    {
-        parseEndlToken(iter);
-    }
     if (iter && iter->_type() == expected)
     {
         return true;
@@ -1855,53 +2015,12 @@ bool CST::matchType(token *&iter, const string &expected)
     return false;
 }
 
-node *CST::parseRelationalStatement(token *&iter, ofstream &outFS)
-{
-
-    int origLineNum = lineNum;
-    if (!matchType(iter, IDENTIFIER))
-    {
-
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected identifier FOR CONDITION\n";
-    }
-
-    auto *parent = new node(iter->content(), curScope);
-    auto *_node = parent;
-    iter = iter->next();
-
-    if (isBooleanOperator(iter))
-    {
-        auto *opNode = new node(iter->content(), curScope);
-        insert(parent, _node, opNode, getLastNode(opNode), origLineNum);
-        iter = iter->next();
-
-        if (matchType(iter, INTEGER) || matchType(iter, IDENTIFIER))
-        {
-            auto *operand = new node(iter->content(), curScope);
-            insert(parent, _node, operand, getLastNode(operand), origLineNum);
-            iter = iter->next();
-        }
-        else
-        {
-            errorDetected = true;
-            outFS << "Syntax error on line " << lineNum << ": Expected OPERAND (IDENTIFIER or INTEGER)\n";
-        }
-    }
-    else
-    {
-        errorDetected = true;
-        outFS << "Syntax error on line " << lineNum << ": Expected BOOLEAN OPERATOR\n";
-    }
-
-    return parent;
-}
 
 /***
  * This outputs the contents of a CST in a human-readable way
  * @param outputFile file to hold the contents of the CST
  */
-void CST::outputTraversal(const string &outputFile)
+void CST::outputTraversal(const string& outputFile)
 {
     ofstream outFS;
     outFS.open(outputFile);
@@ -1912,16 +2031,18 @@ void CST::outputTraversal(const string &outputFile)
         exit(3);
     }
 
-    traverseCST(head, outFS);
-    if (head)
-        outFS << "null";
+    traverseCST(head,outFS);
+//    if (head)
+//        outFS << "null";
 
     outFS.close();
+
 }
 
 #include <iomanip>
 #define ORIGINAL_LENGTH 1
 int lineWidth = ORIGINAL_LENGTH;
+
 
 /***
  * This traverse the CST and outputs the tokens in their tree
@@ -1929,25 +2050,29 @@ int lineWidth = ORIGINAL_LENGTH;
  * @param head root node of the tree
  * @param outFS output file stream
  */
-void traverseCST(node *head, ofstream &outFS)
+void traverseCST(node * head, ofstream& outFS)
 {
     if (!head)
         return;
-    //    outFS << "[" << head->content() << "]->";
-    //    if (head->sibling())
-    //        lineWidth += head->content().size() + 4;
+//    outFS << "[" << head->content() << "]->";
+//    if (head->sibling())
+//        lineWidth += head->content().size() + 4;
     outFS << head->content() << " ";
-    //    if (head->sibling())
-    //        lineWidth += head->content().size();
+//    if (head->sibling())
+//        lineWidth += head->content().size();
 
     traverseCST(head->sibling(), outFS);
 
     if (head->child())
     {
-        outFS << "\n\n"
-              << setw(lineWidth);
+        outFS << "\n\n" << setw(lineWidth);
         traverseCST(head->child(), outFS);
 
+
         lineWidth = ORIGINAL_LENGTH;
+
     }
+
 }
+
+                                                                                                                   
