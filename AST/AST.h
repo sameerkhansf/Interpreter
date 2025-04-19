@@ -52,7 +52,7 @@ public:
 private:
     ASTnode * head;
     symbolTable * ST;
-    int lineNum = 1;
+    int lineNum = 1; // used for insertions
 };
 
 
