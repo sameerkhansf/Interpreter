@@ -66,7 +66,7 @@ void AST::insert(ASTnode *& parent,  ASTnode *& _node, ASTnode *& child, int ori
         // if you stayed on the same line, insert as a sibling
         if (origLineNum == lineNum)
             insertSibling(parent, _node, child);
-        // line number changed, insert as a child of the ASt
+        // line number changed, insert as a child of the AST
         else
             insertChild(parent, _node, child);
     }
@@ -482,7 +482,7 @@ ASTnode * AST::parsePrintfStatement(node *& iter)
     ASTnode * child = nullptr;
 
     iter = iter->sibling(); // iterate to (
-    iter = iter->sibling(); // iterate past
+    iter = iter->sibling(); // iterate to quote
     iter = iter->sibling(); // iterate past quote
 
     child = new ASTnode(iter->content(), nullptr); // catch string
@@ -602,6 +602,7 @@ ASTnode * AST::parseIterationStatement(node *& iter)
 
         iter = iter->sibling();
 
+        // initialization expression
         parent = new ASTnode("FOR EXPRESSION 1", nullptr);
         _node = parent;
         iter = iter->sibling();
@@ -610,7 +611,7 @@ ASTnode * AST::parseIterationStatement(node *& iter)
         insert(parent, _node, init, origLineNum);
         lineNum++;
 
-
+        // condition
         child = new ASTnode("FOR EXPRESSION 2", nullptr);
         insert(parent, _node, child, origLineNum);
         iter = iter->sibling();
@@ -621,6 +622,7 @@ ASTnode * AST::parseIterationStatement(node *& iter)
         nextNode(iter);
         lineNum++;
 
+        // iteration statement
         child = new ASTnode("FOR EXPRESSION 3", nullptr);
         insert(parent, _node, child, origLineNum);
         origLineNum = lineNum;
@@ -630,6 +632,7 @@ ASTnode * AST::parseIterationStatement(node *& iter)
         origLineNum = lineNum;
         lineNum++;
 
+        // iterate to next node
         nextNode(iter);
 
         if (match(iter, "{")) {
@@ -661,7 +664,7 @@ ASTnode * AST::parseUserDefinedFunction(node *& iter)
     auto * parent = new ASTnode("call", nullptr);
     auto * child = new ASTnode(iter->content(), ST->retrieveNode(prev, iter->scope()));
     auto * _node = parent;
-    insert(parent, _node, child, origLineNum);
+    insert(parent, _node, child, origLineNum); // connect call node with function name
     iter = iter->sibling(); // iterate to the first (
 
     while (iter && prev != ")") {
@@ -783,6 +786,7 @@ bool AST::isOpString(const string& iter)
 
 /***
  * This returns the precedence of a given operator
+ * (lower the value the more priority)
  * @param op the given operator
  * @return the given value of their precedence
  */
@@ -836,7 +840,7 @@ ASTnode * AST::convertToPostFix(node *& iter)
     int origLineNum = lineNum;
     while (iter && iter->sibling() && !match(iter, "{") && !match(iter, ";"))
     {
-
+        // non-operator
         if (!isOperator(iter) && !match(iter, "(") && !match(iter, ")") )
         {
 
@@ -850,7 +854,7 @@ ASTnode * AST::convertToPostFix(node *& iter)
                 child = new ASTnode(iter->content(), nullptr);
             insert(parent, _node, child, origLineNum);
 
-            // user - defined function
+            // user-defined function
             string prev;
             auto * peek = iter->sibling();
             if (match(peek, "("))
@@ -869,13 +873,15 @@ ASTnode * AST::convertToPostFix(node *& iter)
 
             }
         }
+        // operator case
         else if (isOperator(iter))
         {
             string curOp = iter->content();
-            int curPrec = precedence(curOp);
+            int curPrecedence = precedence(curOp);
 
             while (!opStack.empty() && isOpString(opStack.top()) &&
-            (curPrec > precedence(opStack.top()) || (curPrec == precedence(opStack.top()) && isLeftAssociative(curOp)) ))
+            (curPrecedence > precedence(opStack.top())
+                || (curPrecedence == precedence(opStack.top()) && isLeftAssociative(curOp)) ))
             {
                 child = new ASTnode(opStack.top(), nullptr);
                 insert(parent, _node, child, origLineNum);
@@ -952,19 +958,35 @@ int lineWid = ORIGINAL_LENGTH;
  */
 void AST::traverseAST(ASTnode * head, ofstream& outFS)
 {
+//    if (!head)
+//        return;
+//    outFS << "[" << head->content() << "]->";
+//    if (head->sibling())
+//        lineWid += head->content().size() + 4;
+//    traverseAST(head->sibling(), outFS);
+//
+//    if (head->child())
+//    {
+//        outFS << "null\n" << setw(lineWid);
+//        traverseAST(head->child(), outFS);
+//        lineWid = ORIGINAL_LENGTH;
+//
+//    }
     if (!head)
         return;
     outFS << "[" << head->content() << "]->";
-    if (head->sibling())
-        lineWid += head->content().size() + 4;
+//    if (head->sibling())
+//        lineWidth += head->content().size() + 4;
+//    outFS << head->content() << " ";
+//    if (head->sibling())
+//        lineWidth += head->content().size();
+
     traverseAST(head->sibling(), outFS);
 
-    if (head->child())
-    {
-        outFS << "null\n" << setw(lineWid);
+    if (head->child()) {
+        outFS << "null\n\n" << setw(lineWid);
         traverseAST(head->child(), outFS);
         lineWid = ORIGINAL_LENGTH;
-
     }
 
 }
