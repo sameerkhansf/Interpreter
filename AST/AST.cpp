@@ -36,7 +36,7 @@ AST::AST(CST *cst, symbolTable * ST)
         {
             child = parseVarDeclaration(iter);
         }
-        // this should not be called and used for a debugging tool
+        // this should not be called and is used for a debugging tool
         else
         {
              nextNode(iter);
