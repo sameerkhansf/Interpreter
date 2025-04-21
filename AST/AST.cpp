@@ -50,6 +50,24 @@ AST::AST(CST *cst, symbolTable * ST)
 }
 
 
+/***
+ * Destructor
+ */
+AST::~AST()
+{
+    ASTnode * iter = head;
+    while (iter)
+    {
+        ASTnode * temp = iter;
+        if (iter->sibling())
+            iter = iter->sibling();
+        else
+            iter = iter->child();
+        delete temp;
+    }
+}
+
+
 
 /***
  * This is the main insertion function for the AST
@@ -255,7 +273,7 @@ ASTnode * AST::parseVarDeclaration(node *& iter)
             iter = iter->sibling();
         }
     }
-    
+
     // iterate past ";"
     nextNode(iter);
     return parent;
@@ -265,7 +283,7 @@ ASTnode * AST::parseVarDeclaration(node *& iter)
 
 /***
  * This function parses a function/procedure declaration
- * 
+ *
  * @param iter the current node in the CST
  * @return the AST structure of the function/procedure
  */
@@ -300,7 +318,7 @@ ASTnode * AST::parseFunctionDeclaration(node *& iter)
 /***
  * This function parses a block statement for conditions
  * and functions/procedures
- * 
+ *
  * @param iter the current node in the CST
  * @return the root node of the block statement in an
  * AST structure
@@ -323,14 +341,14 @@ ASTnode* AST::parseBlockStatement( node *& iter) {
     // insert the end bracket and iterate to the next node
     insert(parent, _node, child, origLineNum);
     nextNode(iter);
-    
+
     return parent;
 }
 
 
 /***
  * This parses to a set char from a given node
- * 
+ *
  * @param character the character to parse to
  * @param iter the current node in the CST
  */
@@ -355,9 +373,9 @@ void AST::parseToGivenChar(const string& character, node *& iter)
 
 /***
  * This function parses a compound statement
- * 
+ *
  * @param iter current CST node
- * @return the root node of the AST structured 
+ * @return the root node of the AST structured
  * compound statement
  */
 ASTnode* AST::parseCompoundStatement( node *& iter ) {
@@ -387,13 +405,13 @@ ASTnode* AST::parseCompoundStatement( node *& iter ) {
 /***
  * This parses an AST structure and returns the
  * last node
- * 
+ *
  * @param root the root node of the structure
  * @return the last node in the structure
  */
 ASTnode* AST::getLastNode(ASTnode * root) {
 
-    if (!root) 
+    if (!root)
         return nullptr;
 
     auto * iter = root;
@@ -404,7 +422,7 @@ ASTnode* AST::getLastNode(ASTnode * root) {
 
         if (iter->child()) {
             iter = iter->child();
-        } 
+        }
         else {
             break;
         }
@@ -415,7 +433,7 @@ ASTnode* AST::getLastNode(ASTnode * root) {
 
 /***
  * This function parses a return statement
- * 
+ *
  * @param iter the current node in the CST
  * @return root node of the created structure of the
  * return statement
@@ -428,7 +446,7 @@ ASTnode * AST::parseReturnStatement(node *& iter)
     auto * parent = new ASTnode("RETURN", nullptr);
     auto * _node = parent;
     iter = iter->sibling(); // iterate to the first node of the return expression
-    
+
     // convert the return expression to post and insert it
     auto * child = convertToPostFix(iter);
     insert(parent, _node, child, origLineNum);
@@ -439,7 +457,7 @@ ASTnode * AST::parseReturnStatement(node *& iter)
 
 /***
  * Parse a double quote string (very similar to single quote string)
- * 
+ *
  * @param iter current CST node
  * @return AST structure of the string
  */
