@@ -335,26 +335,6 @@ int state(int& state, const char& curChar, const char& prevChar, const string& c
 
 
 /***
- * This function keeps track of the encountered parentheses and brackets
- * @param parenthesesCtr the counter of parentheses (increment for left and
- * decrement for right)
- * @param bracketCtr the counter for brackets (operates same as parenthesesCtr)
- * @param curChar the current token
- */
-void adjustCounters(int& parenthesesCtr, int& bracketCtr, const string& curChar)
-{
-    if (curChar == "(")
-        parenthesesCtr++;
-    else if (curChar == ")")
-        parenthesesCtr--;
-    else if (curChar == "{")
-        bracketCtr++;
-    else if (curChar == "}")
-        bracketCtr--;
-}
-
-
-/***
  * This function iterates through a program and creates a token list of
  * its contents
  * @param inputFile the file that holds the program
@@ -436,7 +416,6 @@ tokenList * createTokenList(const string& inputFile, const string& outputFile)
                     }
 
                     convertedChar += curChar;
-                    adjustCounters(parenthesesCtr, bracketCtr, convertedChar);
                     _token = new token(checkToken(convertedChar), convertedChar);
 
                     if (stateNum != 8)
