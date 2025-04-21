@@ -22,7 +22,6 @@ bool isBoolean(const string& curText);
 bool beginningOfBoolean(const string& curText);
 string convertChar(const char& curChar);
 bool checkReserveWord(const string& curText, const vector<string>& list);
-void adjustCounters(int& parenthesesCtr, int& bracketCtr, const string& curChar);
 void adjustFiles(string& initInput, string& tokenInput, string& outputFile, const string& idx);
 
 
