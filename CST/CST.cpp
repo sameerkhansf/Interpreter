@@ -766,6 +766,7 @@ node * CST::parseBracket( token *& iter, ofstream &outFS, node *& parent, node *
     child = new node(iter->content(), curScope);
     insert(parent, _node, child, child, origLineNum);
     iter = iter->next();
+    return parent;
 }
 
 
@@ -1894,14 +1895,14 @@ node* CST::parseUserDefinedFunctionStatement( token *& iter, ofstream& outFS)
 {
     int origLineNum = lineNum;
     // call helper
-    auto *parent = parseUserDefinedFunction(iter, outFS), *_node = parent;
+    auto *parent = parseUserDefinedFunction(iter, outFS), *_node = getLastNode(parent);
     // ensure there is an ending semicolon
     if (!match(iter, ";")) {
         errorDetected = true;
         outFS << "Syntax error on line " << lineNum << ": Expected semicolon after user function\n";
     }
     // catch ending semicolon
-    auto *child = new node(",", curScope);
+    auto *child = new node(";", curScope);
     insert(parent, _node, child, child, origLineNum);
     iter = iter->next(); // parse past semicolon
     return parent;
